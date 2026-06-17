@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================
+   CSS VARIABLES — light e dark
+   ===================================================== */
+:root {
+  --sidebar-width: 256px;
+  --bg: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --border: #e2e8f0;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --header-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-border: #e2e8f0;
+}
+
+.dark {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #253351;
+  --border: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --header-bg: #1e293b;
+  --input-bg: #1e293b;
+  --input-border: #475569;
+}
+
+/* =====================================================
+   BASE
+   ===================================================== */
+* { box-sizing: border-box; }
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  @apply transition-colors duration-200;
+}
+
+/* =====================================================
+   COMPONENTS
+   ===================================================== */
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300
+         hover:bg-white/10 hover:text-white transition-all duration-150 text-sm font-medium;
+}
+.sidebar-item.active {
+  @apply bg-blue-600 text-white;
+}
+
+.card {
+  background-color: var(--bg-card);
+  border-color: var(--border);
+  @apply rounded-xl shadow-sm border p-6 transition-colors duration-200;
+}
+
+.btn-primary {
+  @apply inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium
+         rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50;
+}
+
+.btn-secondary {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border);
+  @apply inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
+         rounded-lg border hover:opacity-80 transition-colors;
+}
+
+.btn-danger {
+  @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium
+         rounded-lg hover:bg-red-700 transition-colors;
+}
+
+.input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+  @apply w-full px-3 py-2 text-sm border rounded-lg
+         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+         placeholder:text-slate-400 transition-colors duration-200;
+}
+
+.label {
+  color: var(--text-secondary);
+  @apply block text-xs font-semibold uppercase tracking-wide mb-1;
+}
+
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+/* =====================================================
+   SCROLLBAR
+   ===================================================== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background-color: var(--bg); }
+::-webkit-scrollbar-thumb { @apply bg-slate-300 dark:bg-slate-600 rounded-full; }

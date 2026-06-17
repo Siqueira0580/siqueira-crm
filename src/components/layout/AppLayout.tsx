@@ -1,0 +1,97 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Sidebar from './Sidebar'
+import Header from './Header'
+import { createClient } from '@/lib/supabase'
+import type { Profile, Notificacao } from '@/types'
+
+interface AppLayoutProps {
+  children: React.ReactNode
+  title: string
+}
+
+const supabase = createClient()
+
+export default function AppLayout({ children, title }: AppLayoutProps) {
+  const router = useRouter()
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [notifications, setNotifications] = useState<Notificacao[]>([])
+  const [authChecked, setAuthChecked] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.user) {
+        router.push('/login')
+        return
+      }
+
+      setUserEmail(session.user.email || '')
+
+      const [{ data: profileData }, { data: notifData }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+        supabase
+          .from('notificacoes')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(30),
+      ])
+
+      if (profileData) setProfile(profileData as any)
+      setNotifications((notifData || []) as any)
+      setAuthChecked(true)
+    }
+
+    load()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        router.push('/')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  const markRead = async (id: string) => {
+    await supabase.from('notificacoes').update({ lida: true }).eq('id', id)
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, lida: true } : n))
+  }
+
+  const markAllRead = async () => {
+    const unreadIds = notifications.filter(n => !n.lida).map(n => n.id)
+    if (unreadIds.length === 0) return
+    await supabase.from('notificacoes').update({ lida: true }).in('id', unreadIds)
+    setNotifications(prev => prev.map(n => ({ ...n, lida: true })))
+  }
+
+  const notifCount = notifications.filter(n => !n.lida).length
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <Sidebar notifCount={notifCount} role={profile?.role} email={userEmail} />
+      <div className="ml-64">
+        <Header
+          title={title}
+          userName={profile?.nome || ''}
+          notifications={notifications}
+          onMarkRead={markRead}
+          onMarkAllRead={markAllRead}
+        />
+        <main className="p-6">{children}</main>
+      </div>
+    </div>
+  )
+}
