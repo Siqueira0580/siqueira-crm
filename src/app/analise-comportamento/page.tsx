@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import { createClient } from '@/lib/supabase'
@@ -704,7 +704,7 @@ function AnaliseJSONView({ data }: { data: AnaliseResult }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function AnaliseComportamentoPage() {
+function AnaliseComportamentoContent() {
   const searchParams = useSearchParams()
   const clienteIdParam = searchParams.get('cliente_id')
   const clienteNomeParam = searchParams.get('cliente_nome')
@@ -1449,5 +1449,13 @@ export default function AnaliseComportamentoPage() {
         </div>
       )}
     </AppLayout>
+  )
+}
+
+export default function AnaliseComportamentoPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>}>
+      <AnaliseComportamentoContent />
+    </Suspense>
   )
 }
