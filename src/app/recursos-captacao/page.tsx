@@ -350,7 +350,7 @@ export default function RecursosCaptacaoPage() {
 
   /* ── Atualizar status ── */
   const updateStatus = async (id: string, status: string) => {
-    await supabase.from('landing_leads').update({ status }).eq('id', id)
+    await (supabase.from('landing_leads') as any).update({ status }).eq('id', id)
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l))
     if (selectedLead?.id === id) setSelectedLead(prev => prev ? { ...prev, status } : prev)
   }
