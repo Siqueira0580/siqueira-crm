@@ -44,12 +44,17 @@ function LoginContent() {
     setLoading(true)
     setError('')
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError('E-mail ou senha inválidos. Verifique suas credenciais ou use "Esqueci minha senha".')
         return
       }
-      router.push('/dashboard')
+      // Se o usuário recebeu uma senha provisória, redireciona para redefinir senha
+      if (data.user?.user_metadata?.must_change_password) {
+        router.push('/redefinir-senha')
+      } else {
+        router.push('/dashboard')
+      }
       router.refresh()
     } finally {
       setLoading(false)

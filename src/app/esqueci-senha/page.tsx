@@ -2,10 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase'
 import { Loader2, Mail, ArrowLeft, CheckCircle } from 'lucide-react'
-
-const supabase = createClient()
 
 export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState('')
@@ -19,9 +16,15 @@ export default function EsqueciSenhaPage() {
     setError('')
 
     try {
-      const redirectTo = `${window.location.origin}/redefinir-senha`
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
-      if (error) throw new Error(error.message)
+      const res = await fetch('/api/auth/recuperar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao processar solicitação.')
+
       setEnviado(true)
     } catch (err: any) {
       setError(err.message || 'Erro ao enviar o e-mail. Tente novamente.')
@@ -47,15 +50,18 @@ export default function EsqueciSenhaPage() {
           {enviado ? (
             <div className="text-center">
               <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
-              <h2 className="text-lg font-semibold text-slate-800">E-mail enviado!</h2>
+              <h2 className="text-lg font-semibold text-slate-800">Senha provisória enviada!</h2>
               <p className="text-slate-500 text-sm mt-2">
-                Verifique a caixa de entrada de <span className="font-medium text-slate-700">{email}</span> e clique
-                no link para redefinir sua senha.
+                Enviamos uma senha provisória para{' '}
+                <span className="font-medium text-slate-700">{email}</span>.
               </p>
-              <p className="text-xs text-slate-400 mt-3">Se não encontrar, verifique a pasta de spam.</p>
+              <p className="text-slate-500 text-sm mt-2">
+                Use-a para entrar no sistema — ao fazer login, você será solicitado a criar uma senha definitiva.
+              </p>
+              <p className="text-xs text-slate-400 mt-3">Não encontrou? Verifique a pasta de spam.</p>
               <Link href="/login" className="btn-primary inline-flex items-center gap-2 mt-6">
                 <ArrowLeft size={15} />
-                Voltar ao login
+                Ir para o login
               </Link>
             </div>
           ) : (
@@ -66,7 +72,7 @@ export default function EsqueciSenhaPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">Esqueceu a senha?</h2>
-                  <p className="text-xs text-slate-500">Enviaremos um link para redefinição</p>
+                  <p className="text-xs text-slate-500">Enviaremos uma senha provisória por e-mail</p>
                 </div>
               </div>
 
@@ -91,7 +97,7 @@ export default function EsqueciSenhaPage() {
 
                 <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
                   {loading && <Loader2 size={16} className="animate-spin" />}
-                  Enviar link de redefinição
+                  Enviar senha provisória
                 </button>
               </form>
 
