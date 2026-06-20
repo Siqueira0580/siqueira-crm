@@ -10,7 +10,7 @@ import {
 
 const supabase = createClient()
 
-// Fallback usado apenas se nenhuma imagem tiver sido configurada em /admin/imagens-home
+// Fallback usado apenas se nenhuma imagem tiver sido configurada em /admin (aba "Perfil da Home")
 const HERO_FALLBACK = [{ url: '', label: 'Encontre o imóvel dos seus sonhos' }]
 const GALLERY_FALLBACK: { url: string; label: string }[] = []
 
@@ -33,7 +33,7 @@ export default function LandingPage() {
   const formRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Carrega as imagens configuradas em /admin/imagens-home
+  // Carrega as imagens configuradas em /admin (aba "Perfil da Home")
   useEffect(() => {
     const loadBanners = async () => {
       const { data } = await supabase
