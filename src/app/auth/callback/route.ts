@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { registrarAcesso, obterIpDoRequest } from '@/lib/log-acesso'
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url)
@@ -65,6 +66,16 @@ export async function GET(req: NextRequest) {
     await supabase.auth.signOut()
     return NextResponse.redirect(`${origin}/login?error=nao_autorizado`)
   }
+
+  // Registra data/hora/IP/dispositivo do acesso (não bloqueia o login em caso de falha)
+  registrarAcesso({
+    userId: session.user.id,
+    email: session.user.email || '',
+    nome: session.user.user_metadata?.nome || session.user.user_metadata?.full_name || null,
+    ip: obterIpDoRequest(req),
+    userAgent: req.headers.get('user-agent'),
+    metodo: 'google',
+  })
 
   return successRes
 }

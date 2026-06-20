@@ -1,31 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { verifyAdmin, FIXED_ADMIN_EMAIL } from '@/lib/admin-auth'
 
-const FIXED_ADMIN_EMAIL = 'duda.siqueira2@gmail.com'
+// Duração usada para bloquear um usuário (Supabase Auth não tem "ban permanente" nativo,
+// então usamos um período bem longo). Para desbloquear, usamos ban_duration: 'none'.
+const BAN_DURATION = '876000h' // 100 anos
 
-// Verifica o token JWT enviado pelo cliente no header Authorization
-async function verifyAdmin(req: NextRequest) {
+// Grava uma entrada de auditoria — nunca deve interromper a ação principal em caso de falha
+async function registrarAuditoria(
+  admin: ReturnType<typeof createAdminClient>,
+  caller: { id: string; email?: string | null },
+  acao: string,
+  alvo?: { id?: string | null; email?: string | null },
+  detalhes?: Record<string, any>
+) {
   try {
-    const auth = req.headers.get('Authorization')
-    if (!auth?.startsWith('Bearer ')) return null
-
-    const token = auth.slice(7)
-    if (!token) return null
-
-    const admin = createAdminClient()
-
-    // Verifica o token com o admin client (server-side, bypass RLS)
-    const { data: { user }, error } = await admin.auth.getUser(token)
-    if (error) {
-      console.error('[verifyAdmin] getUser error:', error.message)
-      return null
-    }
-    if (!user) return null
-    if (user.email !== FIXED_ADMIN_EMAIL) return null
-    return user
+    await admin.from('admin_audit_log').insert({
+      admin_id: caller.id,
+      admin_email: caller.email || '',
+      acao,
+      alvo_user_id: alvo?.id || null,
+      alvo_email: alvo?.email || null,
+      detalhes: detalhes || {},
+    })
   } catch (err: any) {
-    console.error('[verifyAdmin] exception:', err?.message)
-    return null
+    console.error('[registrarAuditoria] falha ao gravar auditoria:', err?.message)
   }
 }
 
@@ -51,16 +50,21 @@ export async function GET(req: NextRequest) {
 
     const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]))
 
-    const users = (data?.users || []).map((u: any) => ({
-      id: u.id,
-      email: u.email,
-      created_at: u.created_at,
-      last_sign_in_at: u.last_sign_in_at,
-      email_confirmed_at: u.email_confirmed_at,
-      nome: profileMap[u.id]?.nome || u.user_metadata?.nome || '',
-      role: profileMap[u.id]?.role || 'corretor',
-      telefone: profileMap[u.id]?.telefone || '',
-    }))
+    const users = (data?.users || []).map((u: any) => {
+      const bannedUntil = u.banned_until ? new Date(u.banned_until) : null
+      const bloqueado = !!bannedUntil && bannedUntil.getTime() > Date.now()
+      return {
+        id: u.id,
+        email: u.email,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
+        email_confirmed_at: u.email_confirmed_at,
+        nome: profileMap[u.id]?.nome || u.user_metadata?.nome || '',
+        role: profileMap[u.id]?.role || 'corretor',
+        telefone: profileMap[u.id]?.telefone || '',
+        bloqueado,
+      }
+    })
 
     return NextResponse.json({ users })
   } catch (err: any) {
@@ -105,6 +109,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Usuário convidado, mas falhou ao salvar perfil: ' + profileError.message }, { status: 500 })
   }
 
+  await registrarAuditoria(admin, caller, 'criar_usuario', { id: invited.user.id, email }, { nome, role })
+
   return NextResponse.json({ success: true, user: invited.user })
 }
 
@@ -114,7 +120,7 @@ export async function PUT(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
   const body = await req.json()
-  const { id, nome, role, telefone, reset_password } = body
+  const { id, nome, role, telefone, reset_password, bloquear } = body
   if (!id) return NextResponse.json({ error: 'ID é obrigatório' }, { status: 400 })
 
   const admin = createAdminClient()
@@ -124,6 +130,26 @@ export async function PUT(req: NextRequest) {
   if (existing?.user?.email === FIXED_ADMIN_EMAIL && role && role !== 'admin') {
     return NextResponse.json({ error: 'O administrador fixo não pode ter o perfil alterado' }, { status: 403 })
   }
+  if (existing?.user?.email === FIXED_ADMIN_EMAIL && bloquear !== undefined) {
+    return NextResponse.json({ error: 'O administrador fixo não pode ser bloqueado' }, { status: 403 })
+  }
+
+  // Bloquear / desbloquear acesso (ban nativo do Supabase Auth — impede login e refresh de sessão)
+  if (bloquear !== undefined) {
+    const { error: banError } = await admin.auth.admin.updateUserById(id, {
+      ban_duration: bloquear ? BAN_DURATION : 'none',
+    })
+    if (banError) {
+      console.error('[admin/users PUT] ban error:', banError.message)
+      return NextResponse.json({ error: 'Erro ao alterar bloqueio: ' + banError.message }, { status: 500 })
+    }
+    await registrarAuditoria(
+      admin, caller,
+      bloquear ? 'bloquear_usuario' : 'desbloquear_usuario',
+      { id, email: existing?.user?.email }
+    )
+    return NextResponse.json({ success: true })
+  }
 
   if (reset_password) {
     const origin = req.headers.get('origin') || 'http://localhost:3000'
@@ -131,6 +157,7 @@ export async function PUT(req: NextRequest) {
     await admin.auth.resetPasswordForEmail(existing?.user?.email || '', {
       redirectTo: `${origin}/redefinir-senha`,
     })
+    await registrarAuditoria(admin, caller, 'resetar_senha', { id, email: existing?.user?.email })
     return NextResponse.json({ success: true, email_sent: true })
   }
 
@@ -153,6 +180,7 @@ export async function PUT(req: NextRequest) {
       console.error('[admin/users PUT] profiles update error:', profileError.message)
       return NextResponse.json({ error: 'Erro ao salvar perfil: ' + profileError.message }, { status: 500 })
     }
+    await registrarAuditoria(admin, caller, 'editar_usuario', { id, email: existing?.user?.email }, profileUpdate)
   }
 
   return NextResponse.json({ success: true })
@@ -178,6 +206,8 @@ export async function DELETE(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await admin.from('profiles').delete().eq('id', id)
+
+  await registrarAuditoria(admin, caller, 'excluir_usuario', { id, email: existing?.user?.email })
 
   return NextResponse.json({ success: true })
 }

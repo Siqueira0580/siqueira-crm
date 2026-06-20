@@ -29,6 +29,23 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         return
       }
 
+      // Verifica se o usuário foi bloqueado pelo administrador. O ban do Supabase Auth
+      // impede novos logins/refresh, mas não invalida um access token já emitido — esta
+      // checagem fecha essa janela, encerrando a sessão na próxima navegação.
+      try {
+        const statusRes = await fetch('/api/auth/status', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        const statusData = await statusRes.json()
+        if (statusData?.bloqueado) {
+          await supabase.auth.signOut({ scope: 'global' })
+          router.push('/login?error=bloqueado')
+          return
+        }
+      } catch {
+        // Falha na checagem não deve impedir o uso normal do sistema
+      }
+
       setUserEmail(session.user.email || '')
 
       const [{ data: profileData }, { data: notifData }] = await Promise.all([

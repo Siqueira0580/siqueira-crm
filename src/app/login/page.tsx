@@ -36,6 +36,8 @@ function LoginContent() {
       setError('Acesso negado. Sua conta Google não está cadastrada no sistema. Solicite acesso ao administrador.')
     } else if (err === 'oauth_falhou') {
       setError('Falha ao autenticar com o Google. Verifique se as configurações OAuth estão corretas no Supabase e tente novamente.')
+    } else if (err === 'bloqueado') {
+      setError('Seu acesso foi bloqueado pelo administrador. Entre em contato para mais informações.')
     }
   }, [searchParams])
 
@@ -49,6 +51,15 @@ function LoginContent() {
         setError('E-mail ou senha inválidos. Verifique suas credenciais ou use "Esqueci minha senha".')
         return
       }
+
+      // Registra data/hora/IP/dispositivo do acesso (não bloqueia o login em caso de falha)
+      if (data.session?.access_token) {
+        fetch('/api/log-acesso', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        }).catch(() => {})
+      }
+
       // Se o usuário recebeu uma senha provisória, redireciona para redefinir senha
       if (data.user?.user_metadata?.must_change_password) {
         router.push('/redefinir-senha')
