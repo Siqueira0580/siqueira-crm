@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { verifyAdmin } from '@/lib/admin-auth'
-
-const TABELAS = [
-  'profiles', 'clientes', 'imoveis', 'fotos_imoveis', 'visitas', 'matching',
-  'notificacoes', 'landing_leads', 'analises_comportamento', 'banners_home',
-  'logs_acesso', 'admin_audit_log',
-]
+import { TABELAS_BACKUP as TABELAS } from '@/lib/backup-tabelas'
 
 // GET — retorna a contagem de registros de cada tabela, para exibir um resumo do banco
 // antes de baixar o backup completo (sem trafegar os dados em si).

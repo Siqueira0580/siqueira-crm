@@ -1,23 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { verifyAdmin } from '@/lib/admin-auth'
-
-// Tabelas incluídas no backup (todas as tabelas de dados do sistema, exceto logs muito grandes
-// que não são essenciais para uma restauração — mas incluímos por completude/auditoria)
-const TABELAS = [
-  'profiles',
-  'clientes',
-  'imoveis',
-  'fotos_imoveis',
-  'visitas',
-  'matching',
-  'notificacoes',
-  'landing_leads',
-  'analises_comportamento',
-  'banners_home',
-  'logs_acesso',
-  'admin_audit_log',
-]
+import { TABELAS_BACKUP as TABELAS } from '@/lib/backup-tabelas'
 
 // GET — gera e retorna um arquivo .json com todas as tabelas do sistema, para download manual.
 // Não há restauração automática por aqui: o arquivo deve ser usado por alguém com acesso

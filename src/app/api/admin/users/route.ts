@@ -1,32 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { verifyAdmin, FIXED_ADMIN_EMAIL } from '@/lib/admin-auth'
+import { registrarAuditoria } from '@/lib/audit-log'
 
 // Duração usada para bloquear um usuário (Supabase Auth não tem "ban permanente" nativo,
 // então usamos um período bem longo). Para desbloquear, usamos ban_duration: 'none'.
 const BAN_DURATION = '876000h' // 100 anos
-
-// Grava uma entrada de auditoria — nunca deve interromper a ação principal em caso de falha
-async function registrarAuditoria(
-  admin: ReturnType<typeof createAdminClient>,
-  caller: { id: string; email?: string | null },
-  acao: string,
-  alvo?: { id?: string | null; email?: string | null },
-  detalhes?: Record<string, any>
-) {
-  try {
-    await admin.from('admin_audit_log').insert({
-      admin_id: caller.id,
-      admin_email: caller.email || '',
-      acao,
-      alvo_user_id: alvo?.id || null,
-      alvo_email: alvo?.email || null,
-      detalhes: detalhes || {},
-    })
-  } catch (err: any) {
-    console.error('[registrarAuditoria] falha ao gravar auditoria:', err?.message)
-  }
-}
 
 // GET — lista todos os usuários
 export async function GET(req: NextRequest) {

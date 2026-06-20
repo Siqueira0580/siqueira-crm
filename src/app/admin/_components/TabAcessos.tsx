@@ -33,6 +33,7 @@ const ACAO_LABEL: Record<string, string> = {
   bloquear_usuario: 'Bloqueou usuário',
   desbloquear_usuario: 'Desbloqueou usuário',
   resetar_senha: 'Enviou redefinição de senha',
+  restaurar_tabela: 'Restaurou tabela a partir de backup',
 }
 
 async function apiHeaders() {
@@ -205,7 +206,12 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
                       <td className="py-3 px-4 text-slate-500 text-xs">{formatarData(a.created_at)}</td>
                       <td className="py-3 px-4 text-slate-600">{a.admin_email}</td>
                       <td className="py-3 px-4 text-slate-800 font-medium">{ACAO_LABEL[a.acao] || a.acao}</td>
-                      <td className="py-3 px-4 text-slate-500">{a.alvo_email || '—'}</td>
+                      <td className="py-3 px-4 text-slate-500">
+                        {a.alvo_email
+                          || (a.acao === 'restaurar_tabela' && a.detalhes?.tabela
+                              ? `${a.detalhes.tabela} (${a.detalhes.registros} registros)`
+                              : '—')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

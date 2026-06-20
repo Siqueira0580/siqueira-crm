@@ -1,28 +1,22 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { Database, Download, Loader2, AlertCircle, ShieldCheck, Info } from 'lucide-react'
+import {
+  Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X,
+} from 'lucide-react'
+import { NOME_TABELA, isTabelaRestauravel } from '@/lib/backup-tabelas'
 
 const supabase = createClient()
-
-const NOME_TABELA: Record<string, string> = {
-  profiles: 'Usuários (perfis)',
-  clientes: 'Clientes',
-  imoveis: 'Imóveis',
-  fotos_imoveis: 'Fotos de imóveis',
-  visitas: 'Visitas',
-  matching: 'Matching',
-  notificacoes: 'Notificações',
-  landing_leads: 'Leads do site',
-  analises_comportamento: 'Análises de IA',
-  banners_home: 'Imagens da home',
-  logs_acesso: 'Histórico de acessos',
-  admin_audit_log: 'Auditoria administrativa',
-}
 
 async function apiHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
   return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` }
+}
+
+interface BackupCarregado {
+  nomeArquivo: string
+  geradoEm?: string
+  tabelas: Record<string, any[]>
 }
 
 export default function TabSistema() {
@@ -31,6 +25,17 @@ export default function TabSistema() {
   const [erro, setErro] = useState('')
   const [baixando, setBaixando] = useState(false)
   const [erroBackup, setErroBackup] = useState('')
+
+  // Restauração
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [backup, setBackup] = useState<BackupCarregado | null>(null)
+  const [erroArquivo, setErroArquivo] = useState('')
+  const [tabelaEscolhida, setTabelaEscolhida] = useState('')
+  const [confirmando, setConfirmando] = useState(false)
+  const [textoConfirmacao, setTextoConfirmacao] = useState('')
+  const [restaurando, setRestaurando] = useState(false)
+  const [erroRestaurar, setErroRestaurar] = useState('')
+  const [resultadoRestaurar, setResultadoRestaurar] = useState<{ tabela: string; registros: number } | null>(null)
 
   useEffect(() => { loadResumo() }, [])
 
@@ -79,6 +84,65 @@ export default function TabSistema() {
 
   const totalRegistros = Object.values(contagens).reduce((acc: number, v) => acc + (v || 0), 0)
 
+  const selecionarArquivo = (file: File | null) => {
+    setErroArquivo('')
+    setBackup(null)
+    setTabelaEscolhida('')
+    setResultadoRestaurar(null)
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result as string)
+        if (!json?.tabelas || typeof json.tabelas !== 'object') {
+          throw new Error('Este arquivo não parece ser um backup válido do Siqueira CRM.')
+        }
+        setBackup({ nomeArquivo: file.name, geradoEm: json.gerado_em, tabelas: json.tabelas })
+      } catch (err: any) {
+        setErroArquivo(err.message || 'Erro ao ler o arquivo. Verifique se é um backup .json válido.')
+      }
+    }
+    reader.onerror = () => setErroArquivo('Erro ao ler o arquivo.')
+    reader.readAsText(file)
+  }
+
+  const tabelasDoBackup = backup
+    ? Object.keys(backup.tabelas).filter(t => isTabelaRestauravel(t) && Array.isArray(backup.tabelas[t]))
+    : []
+
+  const registrosNoBackup = tabelaEscolhida ? (backup?.tabelas[tabelaEscolhida]?.length ?? 0) : 0
+  const registrosAtuais = tabelaEscolhida ? (contagens[tabelaEscolhida] ?? 0) : 0
+
+  const confirmarRestauracao = () => {
+    setErroRestaurar('')
+    setTextoConfirmacao('')
+    setConfirmando(true)
+  }
+
+  const executarRestauracao = async () => {
+    if (!backup || !tabelaEscolhida) return
+    setRestaurando(true)
+    setErroRestaurar('')
+    try {
+      const headers = await apiHeaders()
+      const res = await fetch('/api/admin/backup/restore', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tabela: tabelaEscolhida, dados: backup.tabelas[tabelaEscolhida] }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setConfirmando(false)
+      setResultadoRestaurar({ tabela: tabelaEscolhida, registros: data.registros })
+      loadResumo()
+    } catch (err: any) {
+      setErroRestaurar(err.message || 'Erro ao restaurar')
+    } finally {
+      setRestaurando(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -86,7 +150,7 @@ export default function TabSistema() {
           <Database size={18} className="text-indigo-600" />
           Gerenciador de Sistema
         </h2>
-        <p className="text-sm text-slate-500 mt-0.5">Visão geral do banco de dados e backup manual de todas as informações.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Visão geral do banco de dados, backup e restauração manual.</p>
       </div>
 
       {/* Resumo do banco */}
@@ -132,11 +196,79 @@ export default function TabSistema() {
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroBackup}
           </div>
         )}
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 text-amber-700 text-xs rounded-xl px-4 py-3 mt-4">
-          <Info size={14} className="mt-0.5 flex-shrink-0" />
-          Este backup é só para download — não existe restauração automática pelo painel, para evitar sobrescrever
-          dados reais por engano. Se precisar restaurar algo, peça apoio técnico usando este arquivo.
+      </div>
+
+      {/* Restauração */}
+      <div className="card">
+        <h3 className="font-medium text-slate-700">Restaurar a partir de um backup</h3>
+        <p className="text-sm text-slate-500 mt-1 max-w-lg">
+          Envie um arquivo .json gerado pelo botão acima. A restauração é por tabela e nunca apaga dados —
+          apenas atualiza os registros que já existem e adiciona os que faltam, usando o ID de cada registro do backup.
+        </p>
+
+        <div className="mt-4">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json"
+            onChange={e => selecionarArquivo(e.target.files?.[0] || null)}
+            className="input"
+          />
         </div>
+
+        {erroArquivo && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-4">
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroArquivo}
+          </div>
+        )}
+
+        {backup && (
+          <div className="mt-4 space-y-4">
+            <p className="text-xs text-slate-500">
+              Arquivo: <span className="font-medium text-slate-700">{backup.nomeArquivo}</span>
+              {backup.geradoEm && <> · gerado em {new Date(backup.geradoEm).toLocaleString('pt-BR')}</>}
+            </p>
+
+            <div>
+              <label className="label">Qual tabela restaurar?</label>
+              <select className="input" value={tabelaEscolhida} onChange={e => { setTabelaEscolhida(e.target.value); setResultadoRestaurar(null) }}>
+                <option value="">Selecione...</option>
+                {tabelasDoBackup.map(t => (
+                  <option key={t} value={t}>{NOME_TABELA[t] || t}</option>
+                ))}
+              </select>
+              {tabelasDoBackup.length === 0 && (
+                <p className="text-xs text-slate-400 mt-1">Nenhuma tabela restaurável encontrada neste arquivo.</p>
+              )}
+            </div>
+
+            {tabelaEscolhida && (
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 text-blue-700 text-sm rounded-xl px-4 py-3">
+                <Info size={15} className="mt-0.5 flex-shrink-0" />
+                <span>
+                  O backup tem <span className="font-semibold">{registrosNoBackup}</span> registro(s) de {NOME_TABELA[tabelaEscolhida] || tabelaEscolhida}.
+                  Atualmente existem <span className="font-semibold">{registrosAtuais}</span> no banco.
+                  Nada será apagado — só atualizado/adicionado.
+                </span>
+              </div>
+            )}
+
+            {resultadoRestaurar && (
+              <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+                <CheckCircle size={15} className="mt-0.5 flex-shrink-0" />
+                {resultadoRestaurar.registros} registro(s) de {NOME_TABELA[resultadoRestaurar.tabela] || resultadoRestaurar.tabela} restaurado(s) com sucesso.
+              </div>
+            )}
+
+            <button
+              onClick={confirmarRestauracao}
+              disabled={!tabelaEscolhida}
+              className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+            >
+              <Upload size={15} /> Restaurar esta tabela
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Segurança */}
@@ -147,9 +279,50 @@ export default function TabSistema() {
         <ul className="text-sm text-slate-600 space-y-2">
           <li>• Apenas <span className="font-medium">duda.siqueira2@gmail.com</span> tem acesso de administrador completo.</li>
           <li>• Bloquear um usuário impede login imediatamente; sessões já abertas expiram em até 1 hora.</li>
-          <li>• Toda ação administrativa (criar, editar, excluir, bloquear) fica registrada na aba Acessos.</li>
+          <li>• Toda ação administrativa (criar, editar, excluir, bloquear, restaurar) fica registrada na aba Acessos.</li>
         </ul>
       </div>
+
+      {/* MODAL: CONFIRMAR RESTAURAÇÃO */}
+      {confirmando && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <RotateCcw size={18} className="text-amber-600" /> Confirmar restauração
+              </h2>
+              <button onClick={() => setConfirmando(false)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              Você vai restaurar <span className="font-medium text-slate-700">{registrosNoBackup} registro(s)</span> em{' '}
+              <span className="font-medium text-slate-700">{NOME_TABELA[tabelaEscolhida] || tabelaEscolhida}</span>.
+              Para confirmar, digite o nome da tabela: <span className="font-mono font-semibold">{tabelaEscolhida}</span>
+            </p>
+            <input
+              className="input"
+              placeholder={tabelaEscolhida}
+              value={textoConfirmacao}
+              onChange={e => setTextoConfirmacao(e.target.value)}
+            />
+            {erroRestaurar && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-3">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroRestaurar}
+              </div>
+            )}
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setConfirmando(false)} className="btn-secondary flex-1 justify-center">Cancelar</button>
+              <button
+                onClick={executarRestauracao}
+                disabled={restaurando || textoConfirmacao !== tabelaEscolhida}
+                className="flex-1 justify-center flex items-center gap-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm"
+              >
+                {restaurando && <Loader2 size={14} className="animate-spin" />}
+                Restaurar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
