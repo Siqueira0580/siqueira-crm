@@ -20,8 +20,8 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co",
       // Estilos: próprio site + inline (necessário para Tailwind/CSS-in-JS)
       "style-src 'self' 'unsafe-inline'",
-      // Imagens: próprio site + Supabase storage + data URIs
-      "img-src 'self' data: blob: https://*.supabase.co",
+      // Imagens: próprio site + Supabase storage + Unsplash (fotos da landing page) + data URIs
+      "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com",
       // Fontes: próprio site
       "font-src 'self' data:",
       // Conexões de rede: próprio site + Supabase + API Anthropic (server-side, mas deixamos seguro)
