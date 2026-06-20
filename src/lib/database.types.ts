@@ -56,6 +56,24 @@ export type Database = {
         Update: Record<string, any>
         Relationships: []
       }
+      banners_home: {
+        Row: Record<string, any>
+        Insert: Record<string, any>
+        Update: Record<string, any>
+        Relationships: []
+      }
+      landing_leads: {
+        Row: Record<string, any>
+        Insert: Record<string, any>
+        Update: Record<string, any>
+        Relationships: []
+      }
+      analises_comportamento: {
+        Row: Record<string, any>
+        Insert: Record<string, any>
+        Update: Record<string, any>
+        Relationships: []
+      }
     }
     Views: Record<string, {
       Row: Record<string, any>
