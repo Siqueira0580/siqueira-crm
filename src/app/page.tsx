@@ -126,12 +126,12 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur border-b border-slate-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600 flex items-center justify-center">
-              <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" />
+            <div className="w-14 h-14 rounded-xl overflow-hidden bg-blue-600 flex items-center justify-center">
+              <Image src="/logo.png" alt="Logo" width={56} height={56} className="object-contain" />
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm leading-tight">Siqueira</p>
-              <p className="text-blue-600 text-xs leading-tight">Inteligência Imobiliária</p>
+              <p className="font-bold text-slate-800 text-lg leading-tight">Siqueira</p>
+              <p className="text-blue-600 text-sm leading-tight">Inteligência Imobiliária</p>
             </div>
           </div>
 
