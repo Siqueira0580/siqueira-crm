@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase-admin'
 
 const SYSTEM_PROMPT = `Você é um Motor de Análise de Persona e Estratégia de Vendas Imobiliárias operando no backend de um CRM. Sua função exclusiva é analisar o perfil de clientes (leads) e gerar insights estratégicos acionáveis para o corretor de imóveis.
 
@@ -102,6 +103,17 @@ Retorne APENAS um objeto JSON valido, sem markdown, sem texto fora das chaves. S
 === FIM DO FORMATO ===`
 
 export async function POST(request: NextRequest) {
+  // Verificação de autenticação
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) {
+    return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 })
+  }
+  const admin = createAdminClient()
+  const { data: { user }, error: authError } = await admin.auth.getUser(token)
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Sessão inválida ou expirada.' }, { status: 401 })
+  }
+
   try {
     const body = await request.json()
     const {

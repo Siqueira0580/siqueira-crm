@@ -1031,9 +1031,15 @@ function AnaliseComportamentoContent() {
             endereco_tipo:        (form as any).endereco_tipo,
           }
 
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession) { setError('Sessão expirada. Faça login novamente.'); setLoading(false); return }
+
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authSession.access_token}`,
+        },
         body: JSON.stringify(payload),
       })
       const data = await res.json()

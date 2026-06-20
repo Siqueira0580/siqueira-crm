@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 
+// Rate limiting simples em memória: máx. 3 tentativas por IP a cada 15 minutos
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 3
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000 // 15 minutos
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false
+  entry.count++
+  return true
+}
+
 /** Gera uma senha provisória legível (sem caracteres ambíguos como O, 0, I, l, 1) */
 function gerarSenhaProvisoria(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
@@ -98,6 +115,15 @@ async function enviarEmail(para: string, senhaProvisoria: string, siteUrl: strin
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limiting por IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.' },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await req.json()
     const email: string | undefined = body?.email
