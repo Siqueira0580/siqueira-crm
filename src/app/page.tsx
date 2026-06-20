@@ -10,22 +10,9 @@ import {
 
 const supabase = createClient()
 
-const HERO_IMAGES = [
-  { url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=80', label: 'Residência Premium' },
-  { url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=80', label: 'Apartamento de Luxo' },
-  { url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1600&q=80', label: 'Vista Panorâmica' },
-  { url: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1600&q=80', label: 'Design Moderno' },
-  { url: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=80', label: 'Conforto e Elegância' },
-]
-
-const GALLERY_IMAGES = [
-  { url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80', label: 'Apartamento Jardins' },
-  { url: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80', label: 'Casa Condomínio' },
-  { url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80', label: 'Loft Moderno' },
-  { url: 'https://images.unsplash.com/photo-1616137422495-1e9e46e2aa1e?w=800&q=80', label: 'Cobertura Duplex' },
-  { url: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=800&q=80', label: 'Studio Compacto' },
-  { url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80', label: 'Espaço Comercial' },
-]
+// Fallback usado apenas se nenhuma imagem tiver sido configurada em /admin/imagens-home
+const HERO_FALLBACK = [{ url: '', label: 'Encontre o imóvel dos seus sonhos' }]
+const GALLERY_FALLBACK: { url: string; label: string }[] = []
 
 const TIPO_MORADIA = ['Apartamento', 'Casa', 'Cobertura', 'Studio / Loft', 'Sala Comercial', 'Galpão / Industrial', 'Terreno']
 const TIPO_INTERESSE = ['Aluguel', 'Compra', 'Investimento / Negócios', 'Avaliação do meu imóvel']
@@ -34,6 +21,8 @@ export default function LandingPage() {
   const [heroIdx, setHeroIdx] = useState(0)
   const [galleryIdx, setGalleryIdx] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [heroImages, setHeroImages] = useState(HERO_FALLBACK)
+  const [galleryImages, setGalleryImages] = useState(GALLERY_FALLBACK)
   const [form, setForm] = useState({
     nome: '', telefone: '', cidade: '', tipo_moradia: '', tipo_interesse: '', mensagem: ''
   })
@@ -44,27 +33,53 @@ export default function LandingPage() {
   const formRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Carrega as imagens configuradas em /admin/imagens-home
+  useEffect(() => {
+    const loadBanners = async () => {
+      const { data } = await supabase
+        .from('banners_home')
+        .select('foto_url, titulo, tipo, ordem')
+        .eq('ativo', true)
+        .order('ordem', { ascending: true })
+
+      if (data && data.length > 0) {
+        const hero = (data as any[])
+          .filter(b => b.tipo === 'hero')
+          .map(b => ({ url: b.foto_url, label: b.titulo || 'Siqueira Inteligência Imobiliária' }))
+        const destaque = (data as any[])
+          .filter(b => b.tipo === 'destaque')
+          .map(b => ({ url: b.foto_url, label: b.titulo || 'Imóvel disponível' }))
+
+        if (hero.length > 0) setHeroImages(hero)
+        if (destaque.length > 0) setGalleryImages(destaque)
+      }
+    }
+    loadBanners()
+  }, [])
+
   // Auto-advance hero
   useEffect(() => {
+    if (heroImages.length <= 1) return
     intervalRef.current = setInterval(() => {
-      setHeroIdx(i => (i + 1) % HERO_IMAGES.length)
+      setHeroIdx(i => (i + 1) % heroImages.length)
     }, 5000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [])
+  }, [heroImages.length])
 
   const prevHero = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
-    setHeroIdx(i => (i - 1 + HERO_IMAGES.length) % HERO_IMAGES.length)
+    setHeroIdx(i => (i - 1 + heroImages.length) % heroImages.length)
   }
   const nextHero = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
-    setHeroIdx(i => (i + 1) % HERO_IMAGES.length)
+    setHeroIdx(i => (i + 1) % heroImages.length)
   }
 
   const visibleGallery = () => {
+    if (galleryImages.length === 0) return []
     const items = []
-    for (let i = 0; i < 3; i++) {
-      items.push(GALLERY_IMAGES[(galleryIdx + i) % GALLERY_IMAGES.length])
+    for (let i = 0; i < Math.min(3, galleryImages.length); i++) {
+      items.push(galleryImages[(galleryIdx + i) % galleryImages.length])
     }
     return items
   }
@@ -156,21 +171,23 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── HERO CAROUSEL ─── */}
-      <section className="relative h-screen min-h-[600px] max-h-[900px] overflow-hidden">
-        {HERO_IMAGES.map((img, i) => (
+      <section className="relative h-screen min-h-[600px] max-h-[900px] overflow-hidden bg-gradient-to-br from-slate-800 via-blue-950 to-slate-900">
+        {heroImages.map((img, i) => (
           <div
             key={i}
             className={`absolute inset-0 transition-opacity duration-1000 ${i === heroIdx ? 'opacity-100' : 'opacity-0'}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+            {img.url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/70" />
           </div>
         ))}
 
         <div className="relative z-10 h-full flex flex-col items-center justify-center text-center px-4 pt-16">
           <span className="inline-block bg-blue-600/90 text-white text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-6">
-            {HERO_IMAGES[heroIdx].label}
+            {heroImages[heroIdx]?.label}
           </span>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white leading-tight mb-4 max-w-3xl drop-shadow-lg">
             Encontre o imóvel<br />
@@ -187,28 +204,32 @@ export default function LandingPage() {
           </button>
         </div>
 
-        <button
-          onClick={prevHero}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur text-white rounded-full p-3 transition-all"
-        >
-          <ChevronLeft size={22} />
-        </button>
-        <button
-          onClick={nextHero}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur text-white rounded-full p-3 transition-all"
-        >
-          <ChevronRight size={22} />
-        </button>
-
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-          {HERO_IMAGES.map((_, i) => (
+        {heroImages.length > 1 && (
+          <>
             <button
-              key={i}
-              onClick={() => setHeroIdx(i)}
-              className={`rounded-full transition-all ${i === heroIdx ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50'}`}
-            />
-          ))}
-        </div>
+              onClick={prevHero}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur text-white rounded-full p-3 transition-all"
+            >
+              <ChevronLeft size={22} />
+            </button>
+            <button
+              onClick={nextHero}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 hover:bg-white/40 backdrop-blur text-white rounded-full p-3 transition-all"
+            >
+              <ChevronRight size={22} />
+            </button>
+
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+              {heroImages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setHeroIdx(i)}
+                  className={`rounded-full transition-all ${i === heroIdx ? 'w-6 h-2 bg-white' : 'w-2 h-2 bg-white/50'}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* ─── STATS ─── */}
@@ -229,6 +250,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── GALLERY CAROUSEL ─── */}
+      {galleryImages.length > 0 && (
       <section className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-10">
@@ -264,23 +286,26 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div className="flex justify-center gap-3 mt-6">
-              <button
-                onClick={() => setGalleryIdx(i => (i - 1 + GALLERY_IMAGES.length) % GALLERY_IMAGES.length)}
-                className="bg-white border border-slate-200 shadow text-slate-600 rounded-full p-2.5 hover:bg-blue-50 hover:border-blue-300 transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={() => setGalleryIdx(i => (i + 1) % GALLERY_IMAGES.length)}
-                className="bg-white border border-slate-200 shadow text-slate-600 rounded-full p-2.5 hover:bg-blue-50 hover:border-blue-300 transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+            {galleryImages.length > 3 && (
+              <div className="flex justify-center gap-3 mt-6">
+                <button
+                  onClick={() => setGalleryIdx(i => (i - 1 + galleryImages.length) % galleryImages.length)}
+                  className="bg-white border border-slate-200 shadow text-slate-600 rounded-full p-2.5 hover:bg-blue-50 hover:border-blue-300 transition-all"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={() => setGalleryIdx(i => (i + 1) % galleryImages.length)}
+                  className="bg-white border border-slate-200 shadow text-slate-600 rounded-full p-2.5 hover:bg-blue-50 hover:border-blue-300 transition-all"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
+      )}
 
       {/* ─── FEATURES ─── */}
       <section className="py-16 bg-white">

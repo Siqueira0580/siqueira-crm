@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, Building2, CalendarCheck,
-  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send
+  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send, Image as ImageIcon
 } from 'lucide-react'
 
 const FIXED_ADMIN = 'duda.siqueira2@gmail.com'
@@ -23,6 +23,7 @@ const navItems = [
   { href: '/recursos-captacao',     label: 'Captação',    icon: Send,            adminOnly: false, fixedAdminOnly: false },
   { href: '/equipe',           label: 'Equipe',       icon: UserCog,         adminOnly: true,  fixedAdminOnly: false },
   { href: '/admin/usuarios',   label: 'Usuários',     icon: ShieldCheck,     adminOnly: false, fixedAdminOnly: true  },
+  { href: '/admin/imagens-home', label: 'Imagens da Home', icon: ImageIcon,  adminOnly: false, fixedAdminOnly: true  },
   { href: '/perfil',           label: 'Meu Perfil',   icon: CircleUser,      adminOnly: false, fixedAdminOnly: false },
 ]
 
