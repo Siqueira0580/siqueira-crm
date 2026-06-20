@@ -311,7 +311,7 @@ export default function LandingPage() {
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-800">Por que a Siqueira?</h2>
+            <h2 className="text-3xl font-bold text-slate-800">Porque a Siqueira Inteligência Imobiliária?</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
