@@ -93,13 +93,17 @@ export async function POST(req: NextRequest) {
   if (inviteErr) return NextResponse.json({ error: inviteErr.message }, { status: 400 })
 
   // Salva perfil com role e telefone
-  await admin.from('profiles').upsert({
+  const { error: profileError } = await admin.from('profiles').upsert({
     id: invited.user.id,
     email,
     nome,
     role,
     telefone,
   })
+  if (profileError) {
+    console.error('[admin/users POST] profiles upsert error:', profileError.message)
+    return NextResponse.json({ error: 'Usuário convidado, mas falhou ao salvar perfil: ' + profileError.message }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true, user: invited.user })
 }
@@ -131,7 +135,11 @@ export async function PUT(req: NextRequest) {
   }
 
   if (nome) {
-    await admin.auth.admin.updateUserById(id, { user_metadata: { nome } })
+    const { error: metaError } = await admin.auth.admin.updateUserById(id, { user_metadata: { nome } })
+    if (metaError) {
+      console.error('[admin/users PUT] updateUserById error:', metaError.message)
+      return NextResponse.json({ error: 'Erro ao atualizar nome do usuário: ' + metaError.message }, { status: 500 })
+    }
   }
 
   const profileUpdate: Record<string, string> = {}
@@ -140,7 +148,11 @@ export async function PUT(req: NextRequest) {
   if (telefone !== undefined) profileUpdate.telefone = telefone
 
   if (Object.keys(profileUpdate).length > 0) {
-    await admin.from('profiles').update(profileUpdate).eq('id', id)
+    const { error: profileError } = await admin.from('profiles').update(profileUpdate).eq('id', id)
+    if (profileError) {
+      console.error('[admin/users PUT] profiles update error:', profileError.message)
+      return NextResponse.json({ error: 'Erro ao salvar perfil: ' + profileError.message }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ success: true })
