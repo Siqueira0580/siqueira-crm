@@ -20,6 +20,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   const [userEmail, setUserEmail] = useState<string>('')
   const [notifications, setNotifications] = useState<Notificacao[]>([])
   const [authChecked, setAuthChecked] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -112,16 +113,32 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <InactivityGuard />
-      <Sidebar notifCount={notifCount} role={profile?.role} email={userEmail} />
-      <div className="ml-64">
+
+      {/* Overlay escuro atrás do menu — só em mobile/tablet, fecha ao tocar fora */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        notifCount={notifCount}
+        role={profile?.role}
+        email={userEmail}
+        mobileOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      <div className="lg:ml-64">
         <Header
           title={title}
           userName={profile?.nome || ''}
           notifications={notifications}
           onMarkRead={markRead}
           onMarkAllRead={markAllRead}
+          onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="p-6">{children}</main>
+        <main className="p-3 sm:p-6">{children}</main>
       </div>
     </div>
   )

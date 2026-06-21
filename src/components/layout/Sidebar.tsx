@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, Building2, CalendarCheck,
-  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send
+  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send, X
 } from 'lucide-react'
 
 const FIXED_ADMIN = 'duda.siqueira2@gmail.com'
@@ -30,11 +30,13 @@ interface SidebarProps {
   notifCount?: number
   role?: string
   email?: string
+  mobileOpen?: boolean
+  onClose?: () => void
 }
 
 const supabase = createClient()
 
-export default function Sidebar({ notifCount = 0, role, email }: SidebarProps) {
+export default function Sidebar({ notifCount = 0, role, email, mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -54,10 +56,12 @@ export default function Sidebar({ notifCount = 0, role, email }: SidebarProps) {
   })
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 flex flex-col z-40">
+    <aside className={`fixed left-0 top-0 h-screen w-64 bg-slate-900 flex flex-col z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+      mobileOpen ? 'translate-x-0' : '-translate-x-full'
+    }`}>
 
       {/* Logo */}
-      <div className="px-5 py-4 border-b border-white/10">
+      <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white/10 flex items-center justify-center">
             <Image
@@ -73,6 +77,10 @@ export default function Sidebar({ notifCount = 0, role, email }: SidebarProps) {
             <p className="text-slate-400 text-xs">Imobiliária</p>
           </div>
         </div>
+        {/* Fechar — só aparece no drawer mobile */}
+        <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10">
+          <X size={18} />
+        </button>
       </div>
 
       {/* Nav */}
@@ -84,6 +92,7 @@ export default function Sidebar({ notifCount = 0, role, email }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                 active
                   ? 'bg-blue-600 text-white font-medium shadow'

@@ -253,8 +253,9 @@ export default function RecursosCaptacaoPage() {
   // Stats
   const [stats, setStats] = useState({ total: 0, novos: 0, convertidos: 0, mesAtual: 0 })
 
-  // URL real do formulário de captação — a mesma usada para copiar, compartilhar e abrir
-  const captacaoUrl = `${baseUrl}/formulario-captacao-leads.html?corretor=${userId}`
+  // URL curta de captação — existe como rota própria (/captacao/[id]) que redireciona
+  // para o formulário real; mais limpa para compartilhar do que o link direto ao .html.
+  const captacaoUrl = `${baseUrl}/captacao/${userId}`
 
   // Notificação em tempo real
   const [toast, setToast] = useState<{ nome: string; telefone: string } | null>(null)
