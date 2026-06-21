@@ -25,6 +25,7 @@ const ACAO_LABEL: Record<string, string> = {
   desbloquear_usuario: 'Desbloquear usuário',
   resetar_senha: 'Resetar senha',
   restaurar_tabela: 'Restaurar tabela',
+  bloqueio_automatico: 'Bloqueio automático',
 }
 
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: any; color: 'blue' | 'red' | 'green' | 'amber' | 'indigo' }) {

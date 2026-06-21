@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
+import { validarSenha } from '@/lib/validar-senha'
 import { Eye, EyeOff, Loader2, KeyRound, CheckCircle, AlertCircle } from 'lucide-react'
 
 const supabase = createClient()
@@ -32,8 +33,9 @@ export default function RedefinirSenhaPage() {
     e.preventDefault()
     setError('')
 
-    if (password.length < 8) {
-      setError('A senha deve ter pelo menos 8 caracteres.')
+    const erroSenha = validarSenha(password)
+    if (erroSenha) {
+      setError(erroSenha)
       return
     }
     if (password !== confirm) {
@@ -122,7 +124,7 @@ export default function RedefinirSenhaPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800">Crie sua senha definitiva</h2>
-                  <p className="text-xs text-slate-500">Mínimo de 8 caracteres</p>
+                  <p className="text-xs text-slate-500">Mínimo de 8 caracteres, com letras e números</p>
                 </div>
               </div>
 

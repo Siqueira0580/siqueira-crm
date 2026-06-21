@@ -2,7 +2,7 @@
 import { createAdminClient } from '@/lib/supabase-admin'
 
 interface Caller {
-  id: string
+  id: string | null // null = ação automática do sistema (não vinculada a um admin específico)
   email?: string | null
 }
 
@@ -21,7 +21,7 @@ export async function registrarAuditoria(
 ) {
   try {
     await admin.from('admin_audit_log').insert({
-      admin_id: caller.id,
+      admin_id: caller.id || null,
       admin_email: caller.email || '',
       acao,
       alvo_user_id: alvo?.id || null,

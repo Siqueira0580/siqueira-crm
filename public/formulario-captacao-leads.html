@@ -521,6 +521,11 @@
       <p class="step-subtitle">Informações básicas para entrarmos em contato.</p>
 
       <div class="form-grid">
+        <!-- Honeypot anti-bot: campo invisível para humanos, mas que bots costumam preencher -->
+        <div style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true">
+          <label for="hp_site">Não preencher este campo</label>
+          <input type="text" id="hp_site" name="site" tabindex="-1" autocomplete="off" />
+        </div>
         <div class="field col-full">
           <label>Nome completo <span class="req">*</span></label>
           <input type="text" id="nome" placeholder="Seu nome" />
@@ -1012,6 +1017,7 @@
   // ── STATE ──────────────────────────────────────────
   let currentStep = 1;
   let formData = {};
+  const FORM_LOADED_AT = Date.now(); // anti-bot: usado junto com o honeypot abaixo
 
   // ── UTM CAPTURE ────────────────────────────────────
   const params = new URLSearchParams(window.location.search);
@@ -1215,6 +1221,22 @@
     const errTerm = document.getElementById('err-termos');
     if (!termos) { errTerm.classList.add('show'); return; }
     errTerm.classList.remove('show');
+
+    // Anti-bot: campo honeypot preenchido ou envio suspeito de rápido (menos de 3s) = ignora
+    // silenciosamente, sem revelar ao bot que foi bloqueado.
+    const honeypot = val('hp_site');
+    const tempoPreenchimento = Date.now() - FORM_LOADED_AT;
+    if (honeypot || tempoPreenchimento < 3000) {
+      console.warn('Envio bloqueado por suspeita de bot.');
+      document.getElementById('btnText').style.display = 'none';
+      document.getElementById('spinner').style.display = 'block';
+      setTimeout(() => {
+        document.getElementById('successName').textContent = (val('nome') || 'cliente').split(' ')[0];
+        document.getElementById('step4').style.display = 'none';
+        document.getElementById('successScreen').style.display = 'block';
+      }, 600);
+      return;
+    }
 
     const btnText    = document.getElementById('btnText');
     const spinner    = document.getElementById('spinner');

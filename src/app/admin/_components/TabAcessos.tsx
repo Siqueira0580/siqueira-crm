@@ -35,6 +35,7 @@ const ACAO_LABEL: Record<string, string> = {
   desbloquear_usuario: 'Desbloqueou usuário',
   resetar_senha: 'Enviou redefinição de senha',
   restaurar_tabela: 'Restaurou tabela a partir de backup',
+  bloqueio_automatico: 'Bloqueio automático (tentativas de login)',
 }
 
 async function apiHeaders() {

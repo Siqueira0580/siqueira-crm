@@ -30,8 +30,10 @@ export default function LandingPage() {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [website, setWebsite] = useState('') // honeypot anti-bot — invisível para humanos
   const formRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const formMontadoEmRef = useRef(Date.now()) // anti-bot: tempo até o envio
 
   // Carrega as imagens configuradas em /admin (aba "Perfil da Home")
   useEffect(() => {
@@ -94,6 +96,16 @@ export default function LandingPage() {
       setError('Você precisa aceitar os Termos de Uso e a Política de Privacidade.')
       return
     }
+
+    // Anti-bot: campo honeypot preenchido ou envio rápido demais (<2s) — finge sucesso
+    // sem gravar nada, sem revelar ao bot que foi bloqueado.
+    const tempoPreenchimento = Date.now() - formMontadoEmRef.current
+    if (website || tempoPreenchimento < 2000) {
+      setSent(true)
+      setForm({ nome: '', telefone: '', cidade: '', tipo_moradia: '', tipo_interesse: '', mensagem: '' })
+      return
+    }
+
     setSending(true)
     setError('')
     const { error: dbErr } = await supabase.from('landing_leads').insert({
@@ -349,6 +361,18 @@ export default function LandingPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Honeypot anti-bot: campo invisível para humanos, bots costumam preencher */}
+                <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+                  <label htmlFor="website">Não preencher</label>
+                  <input
+                    type="text"
+                    id="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={e => setWebsite(e.target.value)}
+                  />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">

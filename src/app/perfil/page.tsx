@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import { createClient } from '@/lib/supabase'
+import { validarSenha } from '@/lib/validar-senha'
 import {
   User, Mail, Shield, Key, Eye, EyeOff,
   CheckCircle2, AlertTriangle, Loader2, Lock, ShieldCheck, Smartphone, X, Trash2
@@ -193,8 +194,9 @@ export default function PerfilPage() {
     setSenhaErro('')
     setSenhaOk(false)
 
-    if (novaSenha.length < 6) {
-      setSenhaErro('A nova senha deve ter pelo menos 6 caracteres.')
+    const erroForcaSenha = validarSenha(novaSenha)
+    if (erroForcaSenha) {
+      setSenhaErro(erroForcaSenha)
       return
     }
     if (novaSenha !== confirmaSenha) {
@@ -361,7 +363,7 @@ export default function PerfilPage() {
             ) : (
               <>
                 <p className="text-sm text-slate-500 mb-5">
-                  Escolha uma senha forte com pelo menos 6 caracteres.
+                  Escolha uma senha forte: pelo menos 8 caracteres, com letras e números.
                 </p>
                 <form onSubmit={handleTrocarSenha} className="space-y-4">
                   {/* Senha atual */}
@@ -394,11 +396,11 @@ export default function PerfilPage() {
                       <input
                         type={showNovaSenha ? 'text' : 'password'}
                         className="input pr-10"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mínimo 8 caracteres"
                         value={novaSenha}
                         onChange={e => setNovaSenha(e.target.value)}
                         required
-                        minLength={6}
+                        minLength={8}
                       />
                       <button type="button" onClick={() => setShowNovaSenha(v => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -409,7 +411,7 @@ export default function PerfilPage() {
                     {novaSenha && (
                       <div className="flex gap-1 mt-2">
                         {[
-                          novaSenha.length >= 6,
+                          novaSenha.length >= 8,
                           /[A-Z]/.test(novaSenha),
                           /[0-9]/.test(novaSenha),
                           /[^A-Za-z0-9]/.test(novaSenha),

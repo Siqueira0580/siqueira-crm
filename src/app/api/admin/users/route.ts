@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { verifyAdmin, FIXED_ADMIN_EMAIL } from '@/lib/admin-auth'
 import { registrarAuditoria } from '@/lib/audit-log'
+import { enviarAlertaAdmin } from '@/lib/email-alerta'
 
 // Duração usada para bloquear um usuário (Supabase Auth não tem "ban permanente" nativo,
 // então usamos um período bem longo). Para desbloquear, usamos ban_duration: 'none'.
@@ -90,6 +91,17 @@ export async function POST(req: NextRequest) {
 
   await registrarAuditoria(admin, caller, 'criar_usuario', { id: invited.user.id, email }, { nome, role })
 
+  if (role === 'admin') {
+    await enviarAlertaAdmin(
+      'Novo administrador criado',
+      [
+        `<strong>E-mail:</strong> ${email}`,
+        `<strong>Nome:</strong> ${nome}`,
+        `<strong>Criado por:</strong> ${caller.email}`,
+      ]
+    )
+  }
+
   return NextResponse.json({ success: true, user: invited.user })
 }
 
@@ -127,6 +139,16 @@ export async function PUT(req: NextRequest) {
       bloquear ? 'bloquear_usuario' : 'desbloquear_usuario',
       { id, email: existing?.user?.email }
     )
+
+    await enviarAlertaAdmin(
+      bloquear ? 'Usuário bloqueado' : 'Usuário desbloqueado',
+      [
+        `<strong>Conta:</strong> ${existing?.user?.email || id}`,
+        `<strong>Ação realizada por:</strong> ${caller.email}`,
+      ],
+      bloquear ? '#dc2626' : '#16a34a'
+    )
+
     return NextResponse.json({ success: true })
   }
 
@@ -160,6 +182,16 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao salvar perfil: ' + profileError.message }, { status: 500 })
     }
     await registrarAuditoria(admin, caller, 'editar_usuario', { id, email: existing?.user?.email }, profileUpdate)
+
+    if (profileUpdate.role === 'admin') {
+      await enviarAlertaAdmin(
+        'Usuário promovido a administrador',
+        [
+          `<strong>Conta:</strong> ${existing?.user?.email || id}`,
+          `<strong>Alterado por:</strong> ${caller.email}`,
+        ]
+      )
+    }
   }
 
   return NextResponse.json({ success: true })
