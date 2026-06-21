@@ -55,21 +55,12 @@ interface LandingLead {
   moradia_bairro?: string
   moradia_cidade?: string
   moradia_estado?: string
+  corretor_id?: string | null
 }
 
-interface CorretorLead {
+interface Corretor {
   id: string
   nome: string
-  telefone?: string
-  email?: string
-  tipo_imovel?: string
-  objetivo?: string
-  zona_interesse?: string
-  orcamento_min?: number
-  orcamento_max?: number
-  etapa_funil: string
-  origem?: string
-  created_at: string
 }
 
 /* ─── Helpers ─── */
@@ -136,14 +127,19 @@ function StatusBadge({ status, onChange }: { status: string; onChange: (s: strin
 }
 
 /* ─── Modal de detalhes ─── */
-function LeadModal({ lead, onClose, onConvert }: { lead: LandingLead; onClose: () => void; onConvert: () => void }) {
+function LeadModal({ lead, onClose, onConvert, nomeCorretor }: { lead: LandingLead; onClose: () => void; onConvert: () => void; nomeCorretor?: string }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-bold text-slate-800">{lead.nome}</h2>
-            <p className="text-sm text-slate-500">{fmtDate(lead.created_at)} · <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${STATUS_COLORS[lead.status]}`}>{STATUS_LABELS[lead.status]}</span></p>
+            <p className="text-sm text-slate-500">
+              {fmtDate(lead.created_at)} · <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${STATUS_COLORS[lead.status]}`}>{STATUS_LABELS[lead.status]}</span>
+              {nomeCorretor !== undefined && (
+                <> · <span className="text-indigo-600 font-medium">{nomeCorretor || 'Sem corretor atribuído'}</span></>
+              )}
+            </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
         </div>
@@ -237,26 +233,28 @@ function Row({ label, value, icon }: { label: string; value?: string | null; ico
 /* ══════════════════════════════════════════════════ */
 export default function RecursosCaptacaoPage() {
   const router = useRouter()
-  const [tab, setTab]           = useState<'link' | 'formulario' | 'clientes'>('link')
+  const [tab, setTab]           = useState<'link' | 'formulario'>('link')
   const [userId, setUserId]     = useState<string>('')
   const [userNome, setUserNome] = useState<string>('')
   const [baseUrl, setBaseUrl]   = useState('')
   const [copied, setCopied]     = useState(false)
+  const [isAdmin, setIsAdmin]   = useState(false)
+  const [corretores, setCorretores] = useState<Corretor[]>([])
 
   // Leads do formulário HTML (landing_leads)
   const [leads, setLeads]           = useState<LandingLead[]>([])
   const [loadingLeads, setLoadingLeads] = useState(false)
   const [busca, setBusca]           = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [filtroCorretor, setFiltroCorretor] = useState('todos')
   const [selectedLead, setSelectedLead] = useState<LandingLead | null>(null)
   const [converting, setConverting] = useState<string | null>(null)
 
-  // Leads do link /captacao (clientes com origem Captação)
-  const [corretorLeads, setCorretorLeads] = useState<CorretorLead[]>([])
-  const [loadingCL, setLoadingCL]         = useState(false)
-
   // Stats
   const [stats, setStats] = useState({ total: 0, novos: 0, convertidos: 0, mesAtual: 0 })
+
+  // URL real do formulário de captação — a mesma usada para copiar, compartilhar e abrir
+  const captacaoUrl = `${baseUrl}/formulario-captacao-leads.html?corretor=${userId}`
 
   // Notificação em tempo real
   const [toast, setToast] = useState<{ nome: string; telefone: string } | null>(null)
@@ -268,21 +266,31 @@ export default function RecursosCaptacaoPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
       setUserId(session.user.id)
-      const { data: profile } = await supabase.from('profiles').select('nome').eq('id', session.user.id).single()
+      const { data: profile } = await supabase.from('profiles').select('nome, role').eq('id', session.user.id).single()
       setUserNome(profile?.nome || 'Corretor')
+
+      const admin = profile?.role === 'admin'
+      setIsAdmin(admin)
+
+      // Admin precisa da lista de corretores para filtrar e atribuir leads sem dono
+      if (admin) {
+        const { data: todosPerfis } = await supabase.from('profiles').select('id, nome').order('nome')
+        setCorretores((todosPerfis || []) as Corretor[])
+      }
     }
     init()
   }, [router])
 
   /* ── Load leads do formulário ── */
+  // Admin vê os leads de todos os corretores (inclusive os ainda sem corretor atribuído);
+  // corretor comum vê só os seus — a própria política de RLS no banco já garante isso,
+  // este filtro aqui é só para não pedir linhas que o corretor nem teria acesso.
   const loadLeads = useCallback(async () => {
     if (!userId) return
     setLoadingLeads(true)
-    const { data } = await supabase
-      .from('landing_leads')
-      .select('*')
-      .eq('corretor_id', userId)
-      .order('created_at', { ascending: false })
+    let query = supabase.from('landing_leads').select('*').order('created_at', { ascending: false })
+    if (!isAdmin) query = query.eq('corretor_id', userId)
+    const { data } = await query
     setLeads((data || []) as LandingLead[])
     // Calcular stats
     const all = (data || []) as LandingLead[]
@@ -294,26 +302,11 @@ export default function RecursosCaptacaoPage() {
       mesAtual:   all.filter(l => new Date(l.created_at) >= mesAtual).length,
     })
     setLoadingLeads(false)
-  }, [userId])
-
-  /* ── Load leads do link corretor ── */
-  const loadCorretorLeads = useCallback(async () => {
-    if (!userId) return
-    setLoadingCL(true)
-    const { data } = await supabase
-      .from('clientes')
-      .select('id, nome, telefone, email, tipo_imovel, objetivo, zona_interesse, orcamento_min, orcamento_max, etapa_funil, origem, created_at')
-      .eq('user_id', userId)
-      .eq('origem', 'Captação Online')
-      .order('created_at', { ascending: false })
-    setCorretorLeads((data || []) as CorretorLead[])
-    setLoadingCL(false)
-  }, [userId])
+  }, [userId, isAdmin])
 
   useEffect(() => { if (tab === 'formulario' && userId) loadLeads() }, [tab, userId, loadLeads])
-  useEffect(() => { if (tab === 'clientes' && userId) loadCorretorLeads() }, [tab, userId, loadCorretorLeads])
 
-  // Realtime: alerta ao receber novo lead
+  // Realtime: alerta ao receber novo lead (admin recebe de todos; corretor só do seu)
   useEffect(() => {
     if (!userId) return
     const channel = supabase
@@ -322,7 +315,7 @@ export default function RecursosCaptacaoPage() {
         event: 'INSERT',
         schema: 'public',
         table: 'landing_leads',
-        filter: `corretor_id=eq.${userId}`,
+        ...(isAdmin ? {} : { filter: `corretor_id=eq.${userId}` }),
       }, (payload) => {
         const lead = payload.new as { nome: string; telefone: string }
         setToast({ nome: lead.nome, telefone: lead.telefone })
@@ -333,19 +326,26 @@ export default function RecursosCaptacaoPage() {
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [userId])
+  }, [userId, isAdmin])
 
   /* ── Copiar link ── */
   const copyLink = () => {
-    navigator.clipboard.writeText(`${baseUrl}/captacao/${userId}`)
+    navigator.clipboard.writeText(captacaoUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
 
   /* ── Compartilhar WhatsApp ── */
   const shareWhatsApp = () => {
-    const msg = `Olá! Sou ${userNome} da Siqueira Inteligência Imobiliária.\n\nPreencha nosso formulário para encontrarmos o imóvel ideal para você:\n👇\n${baseUrl}/captacao/${userId}`
+    const msg = `Olá! Sou ${userNome} da Siqueira Inteligência Imobiliária.\n\nPreencha nosso formulário para encontrarmos o imóvel ideal para você:\n👇\n${captacaoUrl}`
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  /* ── Admin: atribuir lead sem corretor a um corretor ── */
+  const assignCorretor = async (leadId: string, corretorId: string) => {
+    if (!corretorId) return
+    await (supabase.from('landing_leads') as any).update({ corretor_id: corretorId }).eq('id', leadId)
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, corretor_id: corretorId } : l))
   }
 
   /* ── Atualizar status ── */
@@ -413,13 +413,15 @@ export default function RecursosCaptacaoPage() {
 
   /* ── Filtrar leads ── */
   const leadsFiltrados = leads.filter(l => {
-    const ok = filtroStatus === 'todos' || l.status === filtroStatus
+    const okStatus = filtroStatus === 'todos' || l.status === filtroStatus
+    const okCorretor = !isAdmin || filtroCorretor === 'todos'
+      || (filtroCorretor === 'sem_corretor' ? !l.corretor_id : l.corretor_id === filtroCorretor)
     const q  = busca.toLowerCase()
     const match = !busca || l.nome.toLowerCase().includes(q) || (l.telefone || '').includes(q) || (l.email || '').toLowerCase().includes(q)
-    return ok && match
+    return okStatus && okCorretor && match
   })
 
-  const captacaoUrl = `${baseUrl}/captacao/${userId}`
+  const nomeCorretor = (id?: string | null) => corretores.find(c => c.id === id)?.nome || ''
 
   /* ══ RENDER ══ */
   return (
@@ -437,7 +439,7 @@ export default function RecursosCaptacaoPage() {
         {/* Stats cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total leads (formulário)', value: stats.total,       Icon: Inbox,       color: 'text-blue-600 bg-blue-50' },
+            { label: isAdmin ? 'Total leads (todos)' : 'Total leads (formulário)', value: stats.total, Icon: Inbox, color: 'text-blue-600 bg-blue-50' },
             { label: 'Novos (aguardando)',        value: stats.novos,       Icon: AlertCircle, color: 'text-amber-600 bg-amber-50' },
             { label: 'Convertidos',               value: stats.convertidos, Icon: Check,       color: 'text-green-600 bg-green-50' },
             { label: 'Leads este mês',            value: stats.mesAtual,    Icon: Calendar,    color: 'text-purple-600 bg-purple-50' },
@@ -457,9 +459,8 @@ export default function RecursosCaptacaoPage() {
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
           {([
-            { key: 'link',       label: 'Meu Link de Captação', TabIcon: Link2 },
-            { key: 'formulario', label: 'Leads do Formulário',   TabIcon: Inbox },
-            { key: 'clientes',   label: 'Leads do Link',         TabIcon: Users },
+            { key: 'link',       label: 'Meu Link de Captação',                      TabIcon: Link2 },
+            { key: 'formulario', label: isAdmin ? 'Todos os Leads' : 'Meus Leads',    TabIcon: isAdmin ? Users : Inbox },
           ] as const).map(({ key, label, TabIcon }) => (
             <button key={key} onClick={() => setTab(key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -521,10 +522,10 @@ export default function RecursosCaptacaoPage() {
               </h2>
               <ol className="space-y-4">
                 {[
-                  { n: '1', title: 'Copie seu link', desc: 'Cada corretor tem um link único com seu ID. Quando o cliente preenche, o lead aparece em sua carteira.' },
+                  { n: '1', title: 'Copie seu link', desc: 'Cada corretor tem um link único com seu ID. Quando o cliente preenche, o lead já chega identificado como seu.' },
                   { n: '2', title: 'Compartilhe com o cliente', desc: 'Envie por WhatsApp, Instagram, e-mail ou cole no bio do Instagram.' },
-                  { n: '3', title: 'Acompanhe aqui', desc: 'Os leads aparecem na aba "Leads do Link" e são automaticamente adicionados como clientes.' },
-                  { n: '4', title: 'Formulário completo', desc: 'Para uma captação mais detalhada com análise de comportamento, use a aba "Leads do Formulário" — os dados chegam por lá e você converte em cliente com um clique.' },
+                  { n: '3', title: 'Acompanhe aqui', desc: 'Os leads aparecem na aba "Meus Leads", com perfil comportamental completo, LGPD e tudo.' },
+                  { n: '4', title: 'Converta em cliente', desc: 'Na aba "Meus Leads", clique em "Converter" para adicionar o lead diretamente à sua carteira de clientes.' },
                 ].map(s => (
                   <li key={s.n} className="flex gap-3">
                     <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{s.n}</span>
@@ -535,18 +536,6 @@ export default function RecursosCaptacaoPage() {
                   </li>
                 ))}
               </ol>
-            </div>
-
-            {/* Formulário externo */}
-            <div className="lg:col-span-2 bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-white font-semibold">Formulário completo de captação</p>
-                <p className="text-slate-400 text-sm mt-1">Formulário rico com perfil comportamental, LGPD e envio para o banco de dados. Ideal para campanhas e anúncios.</p>
-              </div>
-              <a href={`/formulario-captacao-leads.html?corretor=${userId}`} target="_blank" rel="noreferrer"
-                className="flex-shrink-0 flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-colors">
-                <ExternalLink size={15} /> Abrir formulário
-              </a>
             </div>
           </div>
         )}
@@ -570,6 +559,14 @@ export default function RecursosCaptacaoPage() {
                 <option value="convertido">Convertidos</option>
                 <option value="perdido">Perdidos</option>
               </select>
+              {isAdmin && (
+                <select value={filtroCorretor} onChange={e => setFiltroCorretor(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white text-slate-700 outline-none">
+                  <option value="todos">Todos os corretores</option>
+                  <option value="sem_corretor">Sem corretor atribuído</option>
+                  {corretores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              )}
               <button onClick={loadLeads} className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-600 hover:bg-slate-50">
                 <RefreshCw size={14} className={loadingLeads ? 'animate-spin' : ''} /> Atualizar
               </button>
@@ -599,6 +596,22 @@ export default function RecursosCaptacaoPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-slate-800 text-sm">{lead.nome}</span>
                         <StatusBadge status={lead.status} onChange={s => updateStatus(lead.id, s)} />
+                        {isAdmin && (
+                          lead.corretor_id ? (
+                            <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700">
+                              {nomeCorretor(lead.corretor_id) || 'Corretor'}
+                            </span>
+                          ) : (
+                            <select
+                              defaultValue=""
+                              onChange={e => assignCorretor(lead.id, e.target.value)}
+                              className="px-2 py-0.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 outline-none"
+                            >
+                              <option value="" disabled>Atribuir a…</option>
+                              {corretores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                            </select>
+                          )
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
                         {lead.telefone && <span className="flex items-center gap-1"><Phone size={11} /> {lead.telefone}</span>}
@@ -634,51 +647,6 @@ export default function RecursosCaptacaoPage() {
           </div>
         )}
 
-        {/* ──────── TAB: LEADS DO LINK ──────── */}
-        {tab === 'clientes' && (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <p className="text-sm text-slate-500">Clientes captados via seu link <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs">/captacao/{userId?.slice(0,8)}...</code></p>
-              <button onClick={loadCorretorLeads} className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm bg-white text-slate-600 hover:bg-slate-50">
-                <RefreshCw size={14} className={loadingCL ? 'animate-spin' : ''} /> Atualizar
-              </button>
-            </div>
-
-            {loadingCL ? (
-              <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-blue-500" /></div>
-            ) : corretorLeads.length === 0 ? (
-              <div className="text-center py-16 text-slate-400">
-                <Users size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="font-medium">Nenhum lead pelo link ainda</p>
-                <p className="text-sm mt-1">Compartilhe seu link para começar a receber clientes.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {corretorLeads.map(lead => (
-                  <div key={lead.id}
-                    className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 hover:shadow-sm cursor-pointer transition-shadow"
-                    onClick={() => router.push(`/clientes/${lead.id}`)}>
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0 text-purple-700 font-bold text-sm">
-                      {lead.nome[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 text-sm">{lead.nome}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-                        {lead.telefone && <span className="flex items-center gap-1"><Phone size={11} /> {lead.telefone}</span>}
-                        {lead.tipo_imovel && <span className="flex items-center gap-1"><Home size={11} /> {lead.tipo_imovel}</span>}
-                        {(lead.orcamento_min || lead.orcamento_max) && (
-                          <span className="flex items-center gap-1"><Banknote size={11} /> {fmt(lead.orcamento_min)} – {fmt(lead.orcamento_max)}</span>
-                        )}
-                        <span className="flex items-center gap-1"><Calendar size={11} /> {fmtDate(lead.created_at)}</span>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Modal detalhes */}
@@ -687,6 +655,7 @@ export default function RecursosCaptacaoPage() {
           lead={selectedLead}
           onClose={() => setSelectedLead(null)}
           onConvert={() => { const l = selectedLead; if (l) convertToClient(l) }}
+          nomeCorretor={isAdmin ? nomeCorretor(selectedLead.corretor_id) : undefined}
         />
       )}
       {/* ── Toast: novo lead em tempo real ── */}
