@@ -38,6 +38,8 @@ function LoginContent() {
       setError('Falha ao autenticar com o Google. Verifique se as configurações OAuth estão corretas no Supabase e tente novamente.')
     } else if (err === 'bloqueado') {
       setError('Seu acesso foi bloqueado pelo administrador. Entre em contato para mais informações.')
+    } else if (err === 'inatividade') {
+      setError('Sua sessão foi encerrada por inatividade. Entre novamente.')
     }
   }, [searchParams])
 

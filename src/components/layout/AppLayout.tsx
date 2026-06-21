@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import InactivityGuard from './InactivityGuard'
 import { createClient } from '@/lib/supabase'
 import type { Profile, Notificacao } from '@/types'
 
@@ -110,6 +111,7 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <InactivityGuard />
       <Sidebar notifCount={notifCount} role={profile?.role} email={userEmail} />
       <div className="ml-64">
         <Header
