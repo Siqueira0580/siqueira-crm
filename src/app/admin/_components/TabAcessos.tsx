@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import { History, Loader2, AlertCircle, X, ShieldAlert, Monitor } from 'lucide-react'
+import { History, Loader2, AlertCircle, X, ShieldAlert, Monitor, XCircle, CheckCircle2 } from 'lucide-react'
 
 const supabase = createClient()
 
@@ -13,6 +13,7 @@ interface LogAcesso {
   ip: string | null
   user_agent: string | null
   metodo: string
+  sucesso: boolean
   created_at: string
 }
 
@@ -63,6 +64,7 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
   const [periodo, setPeriodo] = useState('30')
+  const [somenteFalhas, setSomenteFalhas] = useState(false)
   const [mostrarAuditoria, setMostrarAuditoria] = useState(false)
   const [userId, setUserId] = useState<string | null>(filtroUsuario?.id || null)
   const [nomeFiltro, setNomeFiltro] = useState<string | null>(filtroUsuario?.nome || null)
@@ -72,7 +74,7 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
     setNomeFiltro(filtroUsuario?.nome || null)
   }, [filtroUsuario])
 
-  useEffect(() => { loadLogs() }, [periodo, userId])
+  useEffect(() => { loadLogs() }, [periodo, userId, somenteFalhas])
   useEffect(() => { if (mostrarAuditoria) loadAuditoria() }, [mostrarAuditoria])
 
   const loadLogs = async () => {
@@ -82,6 +84,7 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
       const headers = await apiHeaders()
       const params = new URLSearchParams()
       if (userId) params.set('user_id', userId)
+      if (somenteFalhas) params.set('somente_falhas', '1')
       if (periodo !== 'todos') {
         const desde = new Date()
         desde.setDate(desde.getDate() - parseInt(periodo, 10))
@@ -117,7 +120,11 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
           </h2>
           <p className="text-sm text-slate-500 mt-0.5">Data, hora, IP e dispositivo de cada login no CRM.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={somenteFalhas} onChange={e => setSomenteFalhas(e.target.checked)} />
+            Somente falhas
+          </label>
           <select className="input !py-2 text-sm" value={periodo} onChange={e => setPeriodo(e.target.value)}>
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
@@ -150,14 +157,25 @@ export default function TabAcessos({ filtroUsuario }: { filtroUsuario?: { id: st
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  {['Nome', 'E-mail', 'Data e hora', 'Método', 'Dispositivo', 'IP'].map(h => (
+                  {['Status', 'Nome', 'E-mail', 'Data e hora', 'Método', 'Dispositivo', 'IP'].map(h => (
                     <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {logs.map(l => (
-                  <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50">
+                  <tr key={l.id} className={`border-b border-slate-50 hover:bg-slate-50 ${!l.sucesso ? 'bg-red-50/40' : ''}`}>
+                    <td className="py-3 px-4">
+                      {l.sucesso ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                          <CheckCircle2 size={13} /> Sucesso
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+                          <XCircle size={13} /> Falha
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 font-medium text-slate-800">{l.nome || '—'}</td>
                     <td className="py-3 px-4 text-slate-600">{l.email}</td>
                     <td className="py-3 px-4 text-slate-500 text-xs">{formatarData(l.created_at)}</td>

@@ -46,6 +46,18 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
         // Falha na checagem não deve impedir o uso normal do sistema
       }
 
+      // Se o usuário tem verificação em duas etapas (2FA) ativada e ainda não a
+      // completou nesta sessão, manda para a tela de verificação antes de qualquer página interna.
+      try {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== aal.nextLevel) {
+          router.push('/verificar-2fa')
+          return
+        }
+      } catch {
+        // Falha na checagem de 2FA não deve travar o usuário sem 2FA ativado
+      }
+
       setUserEmail(session.user.email || '')
 
       const [{ data: profileData }, { data: notifData }] = await Promise.all([

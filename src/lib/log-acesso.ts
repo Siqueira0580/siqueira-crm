@@ -2,24 +2,26 @@
 import { createAdminClient } from '@/lib/supabase-admin'
 
 interface RegistrarAcessoParams {
-  userId: string
+  userId?: string | null
   email: string
   nome?: string | null
   ip?: string | null
   userAgent?: string | null
   metodo?: 'senha' | 'google'
+  sucesso?: boolean
 }
 
-export async function registrarAcesso({ userId, email, nome, ip, userAgent, metodo = 'senha' }: RegistrarAcessoParams) {
+export async function registrarAcesso({ userId, email, nome, ip, userAgent, metodo = 'senha', sucesso = true }: RegistrarAcessoParams) {
   try {
     const admin = createAdminClient()
     await admin.from('logs_acesso').insert({
-      user_id: userId,
+      user_id: userId || null,
       email,
       nome: nome || null,
       ip: ip || null,
       user_agent: userAgent || null,
       metodo,
+      sucesso,
     })
   } catch (err: any) {
     // Nunca deve bloquear o login por falha no registro do log

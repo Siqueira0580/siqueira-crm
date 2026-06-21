@@ -11,18 +11,20 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get('user_id')
   const desde = searchParams.get('desde')
+  const somenteFalhas = searchParams.get('somente_falhas') === '1'
   const limit = Math.min(parseInt(searchParams.get('limit') || '200', 10) || 200, 1000)
 
   const admin = createAdminClient()
 
   let query = admin
     .from('logs_acesso')
-    .select('id, user_id, email, nome, ip, user_agent, metodo, created_at')
+    .select('id, user_id, email, nome, ip, user_agent, metodo, sucesso, created_at')
     .order('created_at', { ascending: false })
     .limit(limit)
 
   if (userId) query = query.eq('user_id', userId)
   if (desde) query = query.gte('created_at', desde)
+  if (somenteFalhas) query = query.eq('sucesso', false)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

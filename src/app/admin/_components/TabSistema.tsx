@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
-  Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X,
+  Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X, Clock, FileJson,
 } from 'lucide-react'
 import { NOME_TABELA, isTabelaRestauravel } from '@/lib/backup-tabelas'
 
@@ -37,7 +37,28 @@ export default function TabSistema() {
   const [erroRestaurar, setErroRestaurar] = useState('')
   const [resultadoRestaurar, setResultadoRestaurar] = useState<{ tabela: string; registros: number } | null>(null)
 
-  useEffect(() => { loadResumo() }, [])
+  // Backups automáticos
+  const [backupsAuto, setBackupsAuto] = useState<{ nome: string; criado_em: string; tamanho: number | null; url: string | null }[]>([])
+  const [loadingAuto, setLoadingAuto] = useState(true)
+  const [erroAuto, setErroAuto] = useState('')
+
+  useEffect(() => { loadResumo(); loadBackupsAuto() }, [])
+
+  const loadBackupsAuto = async () => {
+    setLoadingAuto(true)
+    setErroAuto('')
+    try {
+      const headers = await apiHeaders()
+      const res = await fetch('/api/admin/backup/automaticos', { headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setBackupsAuto(data.backups || [])
+    } catch (err: any) {
+      setErroAuto(err.message || 'Erro ao carregar backups automáticos')
+    } finally {
+      setLoadingAuto(false)
+    }
+  }
 
   const loadResumo = async () => {
     setLoading(true)
@@ -194,6 +215,50 @@ export default function TabSistema() {
         {erroBackup && (
           <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-4">
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroBackup}
+          </div>
+        )}
+      </div>
+
+      {/* Backups automáticos */}
+      <div className="card">
+        <h3 className="font-medium text-slate-700 flex items-center gap-2">
+          <Clock size={16} className="text-indigo-600" /> Backups automáticos
+        </h3>
+        <p className="text-sm text-slate-500 mt-1 max-w-lg">
+          Toda segunda-feira às 03h um backup completo é gerado e guardado automaticamente, sem precisar de ninguém clicar em nada.
+          Os links abaixo expiram em 10 minutos por segurança.
+        </p>
+
+        {loadingAuto ? (
+          <div className="flex items-center justify-center py-8 gap-3 text-slate-400">
+            <Loader2 size={18} className="animate-spin" /> Carregando...
+          </div>
+        ) : erroAuto ? (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-4">
+            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroAuto}
+          </div>
+        ) : backupsAuto.length === 0 ? (
+          <p className="text-sm text-slate-400 mt-4">Nenhum backup automático gerado ainda — o primeiro será criado na próxima segunda-feira.</p>
+        ) : (
+          <div className="mt-4 divide-y divide-slate-100">
+            {backupsAuto.map(b => (
+              <div key={b.nome} className="flex items-center justify-between py-2.5 text-sm">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <FileJson size={14} className="text-slate-400" />
+                  {b.nome}
+                  <span className="text-xs text-slate-400">
+                    {b.criado_em && new Date(b.criado_em).toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                {b.url ? (
+                  <a href={b.url} className="text-indigo-600 hover:underline text-xs font-medium flex items-center gap-1">
+                    <Download size={13} /> Baixar
+                  </a>
+                ) : (
+                  <span className="text-xs text-slate-400">Link indisponível</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -49,6 +49,11 @@ function LoginContent() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError('E-mail ou senha inválidos. Verifique suas credenciais ou use "Esqueci minha senha".')
+        fetch('/api/log-acesso-falha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }).catch(() => {})
         return
       }
 

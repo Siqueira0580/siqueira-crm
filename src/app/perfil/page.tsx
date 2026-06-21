@@ -4,7 +4,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import { createClient } from '@/lib/supabase'
 import {
   User, Mail, Shield, Key, Eye, EyeOff,
-  CheckCircle2, AlertTriangle, Loader2, Lock
+  CheckCircle2, AlertTriangle, Loader2, Lock, ShieldCheck, Smartphone, X, Trash2
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -40,6 +40,100 @@ export default function PerfilPage() {
   const [salvandoPerfil, setSalvandoPerfil] = useState(false)
   const [perfilOk, setPerfilOk] = useState(false)
   const [perfilErro, setPerfilErro] = useState('')
+
+  // Verificação em duas etapas (2FA / TOTP)
+  const [mfaFactors, setMfaFactors] = useState<{ id: string; friendly_name?: string; status: string }[]>([])
+  const [mfaLoading, setMfaLoading] = useState(true)
+  const [mfaEnrolling, setMfaEnrolling] = useState(false)
+  const [mfaQr, setMfaQr] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaErro, setMfaErro] = useState('')
+  const [mfaOk, setMfaOk] = useState(false)
+  const [mfaVerificando, setMfaVerificando] = useState(false)
+  const [mfaRemovendo, setMfaRemovendo] = useState('')
+
+  const carregarFatores = async () => {
+    setMfaLoading(true)
+    const { data } = await supabase.auth.mfa.listFactors()
+    setMfaFactors((data?.totp || []).filter(f => f.status === 'verified'))
+    setMfaLoading(false)
+  }
+
+  useEffect(() => { carregarFatores() }, [])
+
+  const iniciarAtivacao2FA = async () => {
+    setMfaErro('')
+    setMfaOk(false)
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: `App autenticador — ${new Date().toLocaleDateString('pt-BR')}`,
+    })
+    if (error) {
+      setMfaErro(error.message)
+      return
+    }
+    setMfaFactorId(data.id)
+    setMfaQr(data.totp.qr_code)
+    setMfaSecret(data.totp.secret)
+    setMfaCode('')
+    setMfaEnrolling(true)
+  }
+
+  const cancelarAtivacao2FA = async () => {
+    if (mfaFactorId) {
+      await supabase.auth.mfa.unenroll({ factorId: mfaFactorId })
+    }
+    setMfaEnrolling(false)
+    setMfaFactorId('')
+    setMfaQr('')
+    setMfaSecret('')
+    setMfaCode('')
+    setMfaErro('')
+  }
+
+  const confirmarAtivacao2FA = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMfaErro('')
+    setMfaVerificando(true)
+    try {
+      const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: mfaFactorId })
+      if (challengeErr) throw challengeErr
+
+      const { error: verifyErr } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challenge.id,
+        code: mfaCode.trim(),
+      })
+      if (verifyErr) throw verifyErr
+
+      setMfaEnrolling(false)
+      setMfaFactorId('')
+      setMfaQr('')
+      setMfaSecret('')
+      setMfaCode('')
+      setMfaOk(true)
+      await carregarFatores()
+      setTimeout(() => setMfaOk(false), 4000)
+    } catch (err: any) {
+      setMfaErro(err.message || 'Código inválido. Confira o app autenticador e tente novamente.')
+    } finally {
+      setMfaVerificando(false)
+    }
+  }
+
+  const desativar2FA = async (factorId: string) => {
+    if (!confirm('Desativar a verificação em duas etapas? Sua conta ficará protegida apenas pela senha.')) return
+    setMfaRemovendo(factorId)
+    const { error } = await supabase.auth.mfa.unenroll({ factorId })
+    setMfaRemovendo('')
+    if (error) {
+      setMfaErro(error.message)
+    } else {
+      carregarFatores()
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -380,6 +474,93 @@ export default function PerfilPage() {
                   </button>
                 </form>
               </>
+            )}
+          </div>
+
+          {/* ── Verificação em duas etapas ── */}
+          <div className="card">
+            <h3 className="font-semibold text-slate-800 dark:text-white mb-1 flex items-center gap-2">
+              <ShieldCheck size={17} className="text-blue-500" /> Verificação em duas etapas
+            </h3>
+            <p className="text-sm text-slate-500 mb-5">
+              Adicione uma camada extra de segurança: além da senha, será pedido um código gerado por um app autenticador
+              (Google Authenticator, Authy, etc.) ao entrar.
+            </p>
+
+            {mfaErro && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded-lg mb-4">
+                <AlertTriangle size={14} /> {mfaErro}
+              </div>
+            )}
+            {mfaOk && (
+              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg mb-4">
+                <CheckCircle2 size={14} /> Verificação em duas etapas ativada com sucesso!
+              </div>
+            )}
+
+            {mfaLoading ? (
+              <Loader2 size={18} className="animate-spin text-slate-400" />
+            ) : mfaEnrolling ? (
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    1. Escaneie o QR Code com seu app autenticador
+                  </p>
+                  <button type="button" onClick={cancelarAtivacao2FA} className="p-1 hover:bg-slate-100 rounded-lg flex-shrink-0">
+                    <X size={16} />
+                  </button>
+                </div>
+                {mfaQr && (
+                  <img
+                    src={`data:image/svg+xml;utf-8,${encodeURIComponent(mfaQr)}`}
+                    alt="QR Code para configurar a verificação em duas etapas"
+                    className="w-40 h-40 border border-slate-100 rounded-lg"
+                  />
+                )}
+                {mfaSecret && (
+                  <p className="text-xs text-slate-400">
+                    Não conseguiu escanear? Digite manualmente este código no app: <span className="font-mono font-medium text-slate-600">{mfaSecret}</span>
+                  </p>
+                )}
+                <form onSubmit={confirmarAtivacao2FA} className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      2. Digite o código de 6 dígitos gerado pelo app
+                    </label>
+                    <input
+                      className="input"
+                      placeholder="000000"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                      required
+                    />
+                  </div>
+                  <button type="submit" disabled={mfaVerificando || mfaCode.length < 6} className="btn-primary">
+                    {mfaVerificando && <Loader2 size={15} className="animate-spin" />}
+                    Confirmar e ativar
+                  </button>
+                </form>
+              </div>
+            ) : mfaFactors.length > 0 ? (
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                  <Smartphone size={16} /> Ativada — {mfaFactors[0].friendly_name || 'App autenticador'}
+                </div>
+                <button
+                  onClick={() => desativar2FA(mfaFactors[0].id)}
+                  disabled={mfaRemovendo === mfaFactors[0].id}
+                  className="text-xs text-red-600 hover:underline flex items-center gap-1"
+                >
+                  {mfaRemovendo === mfaFactors[0].id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Desativar
+                </button>
+              </div>
+            ) : (
+              <button onClick={iniciarAtivacao2FA} className="btn-secondary flex items-center gap-2">
+                <ShieldCheck size={15} /> Ativar verificação em duas etapas
+              </button>
             )}
           </div>
 
