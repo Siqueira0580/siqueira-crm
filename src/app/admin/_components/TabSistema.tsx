@@ -5,6 +5,7 @@ import {
   Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X, Clock, FileJson,
 } from 'lucide-react'
 import { NOME_TABELA, isTabelaRestauravel } from '@/lib/backup-tabelas'
+import TabSistemaDashboard from './TabSistemaDashboard'
 
 const supabase = createClient()
 
@@ -174,28 +175,18 @@ export default function TabSistema() {
         <p className="text-sm text-slate-500 mt-0.5">Visão geral do banco de dados, backup e restauração manual.</p>
       </div>
 
-      {/* Resumo do banco */}
-      <div className="card">
-        <h3 className="font-medium text-slate-700 mb-4">Resumo do banco de dados</h3>
-        {loading ? (
-          <div className="flex items-center justify-center py-10 gap-3 text-slate-400">
-            <Loader2 size={20} className="animate-spin" /> Carregando...
-          </div>
-        ) : erro ? (
-          <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erro}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {Object.entries(contagens).map(([tabela, count]) => (
-              <div key={tabela} className="border border-slate-100 rounded-xl px-4 py-3">
-                <p className="text-2xl font-bold text-slate-800">{count ?? '—'}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{NOME_TABELA[tabela] || tabela}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Dashboard de resumos */}
+      {loading ? (
+        <div className="card flex items-center justify-center py-10 gap-3 text-slate-400">
+          <Loader2 size={20} className="animate-spin" /> Carregando dashboard...
+        </div>
+      ) : erro ? (
+        <div className="card flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erro}
+        </div>
+      ) : (
+        <TabSistemaDashboard contagens={contagens} />
+      )}
 
       {/* Backup */}
       <div className="card">
