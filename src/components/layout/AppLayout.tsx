@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import BottomNav from './BottomNav'
 import InactivityGuard from './InactivityGuard'
 import { createClient } from '@/lib/supabase'
 import type { Profile, Notificacao } from '@/types'
@@ -138,8 +139,10 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
           onMarkAllRead={markAllRead}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="p-3 sm:p-6">{children}</main>
+        <main className="p-3 sm:p-6 pb-20 lg:pb-6">{children}</main>
       </div>
+
+      <BottomNav onMenuClick={() => setSidebarOpen(true)} />
     </div>
   )
 }
