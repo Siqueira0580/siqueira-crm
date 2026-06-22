@@ -4,13 +4,14 @@ import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Modal from '@/components/ui/Modal'
 import ImovelForm from '@/components/imoveis/ImovelForm'
+import CalculadoraVenda from '@/components/imoveis/CalculadoraVenda'
 import { createClient } from '@/lib/supabase'
 import { calcularMatch, getMatchLabel } from '@/lib/matching'
 import { formatCurrency, STATUS_IMOVEL } from '@/lib/utils'
 import type { Imovel, Cliente, Profile } from '@/types'
 import {
   ArrowLeft, Edit2, MapPin, Bed, Car, Bath,
-  SquareStack, Zap, ChevronLeft, ChevronRight, FileText, Loader2, Expand
+  SquareStack, Zap, ChevronLeft, ChevronRight, FileText, Loader2, Expand, Calculator
 } from 'lucide-react'
 import Lightbox from '@/components/ui/Lightbox'
 
@@ -27,6 +28,7 @@ export default function ImovelDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [fotoIdx, setFotoIdx] = useState(0)
   const [propostaOpen, setPropostaOpen] = useState(false)
+  const [calculadoraOpen, setCalculadoraOpen] = useState(false)
   const [propostaClienteId, setPropostaClienteId] = useState('')
   const [gerando, setGerando] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -219,21 +221,24 @@ export default function ImovelDetailPage() {
       <div className="max-w-6xl space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="btn-secondary p-2"><ArrowLeft size={18} /></button>
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">{imovel.titulo}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => router.back()} className="btn-secondary p-2 flex-shrink-0"><ArrowLeft size={18} /></button>
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-slate-800 truncate">{imovel.titulo}</h2>
               <p className="text-sm text-blue-600 font-semibold">{formatCurrency(imovel.valor)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`badge ${status.color}`}>{status.label}</span>
+            <button onClick={() => setCalculadoraOpen(true)} className="btn-secondary">
+              <Calculator size={16} /> <span className="hidden sm:inline">Calcular venda</span>
+            </button>
             <button onClick={() => setPropostaOpen(true)} className="btn-secondary">
-              <FileText size={16} /> Gerar Proposta
+              <FileText size={16} /> <span className="hidden sm:inline">Gerar Proposta</span>
             </button>
             <button onClick={() => setEditOpen(true)} className="btn-secondary">
-              <Edit2 size={16} /> Editar
+              <Edit2 size={16} /> <span className="hidden sm:inline">Editar</span>
             </button>
           </div>
         </div>
@@ -420,6 +425,15 @@ export default function ImovelDetailPage() {
           imovel={imovel}
           onSuccess={() => { setEditOpen(false); loadData() }}
           onCancel={() => setEditOpen(false)}
+        />
+      </Modal>
+
+      {/* Modal Calculadora de Venda */}
+      <Modal isOpen={calculadoraOpen} onClose={() => setCalculadoraOpen(false)} title="Calculadora de Venda" size="lg">
+        <CalculadoraVenda
+          imovel={imovel}
+          onClose={() => setCalculadoraOpen(false)}
+          onSalvo={loadData}
         />
       </Modal>
 

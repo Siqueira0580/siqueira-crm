@@ -124,6 +124,13 @@ export interface Imovel {
   fotos?: FotoImovel[]
   created_at: string
   updated_at: string
+  // Campos usados pela calculadora de venda (valor líquido ao vendedor)
+  valor_aquisicao?: number | null
+  data_aquisicao?: string | null
+  saldo_devedor_financiamento?: number | null
+  comissao_percentual?: number | null
+  imovel_unico_proprietario?: boolean | null
+  isencao_usada_ultimos_5_anos?: boolean | null
 }
 
 export interface FotoImovel {
