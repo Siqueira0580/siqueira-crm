@@ -131,19 +131,19 @@ function LeadModal({ lead, onClose, onConvert, nomeCorretor }: { lead: LandingLe
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">{lead.nome}</h2>
-            <p className="text-sm text-slate-500">
+        <div className="flex items-start justify-between gap-3 p-4 sm:p-6 border-b border-slate-100">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-slate-800 truncate">{lead.nome}</h2>
+            <p className="text-sm text-slate-500 flex flex-wrap items-center gap-1.5 mt-0.5">
               {fmtDate(lead.created_at)} · <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${STATUS_COLORS[lead.status]}`}>{STATUS_LABELS[lead.status]}</span>
               {nomeCorretor !== undefined && (
-                <> · <span className="text-indigo-600 font-medium">{nomeCorretor || 'Sem corretor atribuído'}</span></>
+                <span className="text-indigo-600 font-medium">· {nomeCorretor || 'Sem corretor atribuído'}</span>
               )}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg flex-shrink-0"><X size={18} /></button>
         </div>
-        <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <Section title="Contato">
             <Row label="Telefone" value={lead.telefone} icon={<Phone size={13} />} />
             <Row label="E-mail" value={lead.email} icon={<Mail size={13} />} />
@@ -190,19 +190,19 @@ function LeadModal({ lead, onClose, onConvert, nomeCorretor }: { lead: LandingLe
             </div>
           )}
         </div>
-        <div className="px-6 pb-6 flex gap-3">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex flex-col sm:flex-row gap-3">
           <a href={`https://wa.me/55${lead.telefone?.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition-colors">
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto">
             <MessageCircle size={16} /> WhatsApp
           </a>
           {lead.email && (
             <a href={`mailto:${lead.email}`}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-semibold transition-colors">
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto">
               <Mail size={16} /> E-mail
             </a>
           )}
           <button onClick={onConvert}
-            className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold transition-colors">
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold transition-colors w-full sm:w-auto sm:ml-auto">
             <UserPlus size={16} /> Converter em Cliente
           </button>
         </div>
@@ -427,7 +427,7 @@ export default function RecursosCaptacaoPage() {
   /* ══ RENDER ══ */
   return (
     <AppLayout title="Recursos de Captação">
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto overflow-x-hidden">
 
         {/* Header */}
         <div className="mb-6">
@@ -458,16 +458,18 @@ export default function RecursosCaptacaoPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 max-w-full overflow-x-auto">
           {([
-            { key: 'link',       label: 'Meu Link de Captação',                      TabIcon: Link2 },
-            { key: 'formulario', label: isAdmin ? 'Todos os Leads' : 'Meus Leads',    TabIcon: isAdmin ? Users : Inbox },
-          ] as const).map(({ key, label, TabIcon }) => (
+            { key: 'link',       labelShort: 'Meu Link', labelFull: 'Meu Link de Captação',           TabIcon: Link2 },
+            { key: 'formulario', labelShort: isAdmin ? 'Leads' : 'Meus Leads', labelFull: isAdmin ? 'Todos os Leads' : 'Meus Leads', TabIcon: isAdmin ? Users : Inbox },
+          ] as const).map(({ key, labelShort, labelFull, TabIcon }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                 tab === key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}>
-              <TabIcon size={15} /> {label}
+              <TabIcon size={15} />
+              <span className="sm:hidden">{labelShort}</span>
+              <span className="hidden sm:inline">{labelFull}</span>
             </button>
           ))}
         </div>
@@ -585,48 +587,50 @@ export default function RecursosCaptacaoPage() {
               <div className="space-y-3">
                 {leadsFiltrados.map(lead => (
                   <div key={lead.id}
-                    className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
+                    className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:shadow-sm transition-shadow">
 
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
-                      {lead.nome[0]?.toUpperCase()}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-800 text-sm">{lead.nome}</span>
-                        <StatusBadge status={lead.status} onChange={s => updateStatus(lead.id, s)} />
-                        {isAdmin && (
-                          lead.corretor_id ? (
-                            <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700">
-                              {nomeCorretor(lead.corretor_id) || 'Corretor'}
-                            </span>
-                          ) : (
-                            <select
-                              defaultValue=""
-                              onChange={e => assignCorretor(lead.id, e.target.value)}
-                              className="px-2 py-0.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 outline-none"
-                            >
-                              <option value="" disabled>Atribuir a…</option>
-                              {corretores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                            </select>
-                          )
-                        )}
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
+                        {lead.nome[0]?.toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-                        {lead.telefone && <span className="flex items-center gap-1"><Phone size={11} /> {lead.telefone}</span>}
-                        {lead.email && <span className="flex items-center gap-1"><Mail size={11} /> {lead.email}</span>}
-                        {lead.tipo_imovel && <span className="flex items-center gap-1"><Home size={11} /> {lead.tipo_imovel}</span>}
-                        {(lead.orcamento_min || lead.orcamento_max) && (
-                          <span className="flex items-center gap-1"><Banknote size={11} /> {fmt(lead.orcamento_min)} – {fmt(lead.orcamento_max)}</span>
-                        )}
-                        <span className="flex items-center gap-1"><Calendar size={11} /> {fmtDate(lead.created_at)}</span>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-slate-800 text-sm">{lead.nome}</span>
+                          <StatusBadge status={lead.status} onChange={s => updateStatus(lead.id, s)} />
+                          {isAdmin && (
+                            lead.corretor_id ? (
+                              <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700">
+                                {nomeCorretor(lead.corretor_id) || 'Corretor'}
+                              </span>
+                            ) : (
+                              <select
+                                defaultValue=""
+                                onChange={e => assignCorretor(lead.id, e.target.value)}
+                                className="px-2 py-0.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 outline-none max-w-[140px]"
+                              >
+                                <option value="" disabled>Atribuir a…</option>
+                                {corretores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                              </select>
+                            )
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+                          {lead.telefone && <span className="flex items-center gap-1"><Phone size={11} /> {lead.telefone}</span>}
+                          {lead.email && <span className="flex items-center gap-1 truncate max-w-[180px]"><Mail size={11} className="flex-shrink-0" /> {lead.email}</span>}
+                          {lead.tipo_imovel && <span className="flex items-center gap-1"><Home size={11} /> {lead.tipo_imovel}</span>}
+                          {(lead.orcamento_min || lead.orcamento_max) && (
+                            <span className="flex items-center gap-1"><Banknote size={11} /> {fmt(lead.orcamento_min)} – {fmt(lead.orcamento_max)}</span>
+                          )}
+                          <span className="flex items-center gap-1"><Calendar size={11} /> {fmtDate(lead.created_at)}</span>
+                        </div>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
                       <button onClick={() => setSelectedLead(lead)}
                         className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-700 transition-colors" title="Ver detalhes">
                         <Eye size={16} />
