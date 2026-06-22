@@ -1,18 +1,24 @@
 'use client'
 import { useState, useMemo } from 'react'
+import { createClient } from '@/lib/supabase'
 import { calcularCompraImovel, type SistemaAmortizacao } from '@/lib/calculo-compra'
 import { calcularMatch } from '@/lib/matching'
+import { atualizarPipelineCliente } from '@/lib/pipeline'
+import { gerarPdfProposta, arrayBufferToBase64 } from '@/lib/gerar-pdf-proposta'
 import { formatCurrency } from '@/lib/utils'
-import type { Cliente, Imovel } from '@/types'
-import { Calculator, Info, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import type { Cliente, Imovel, Proposta } from '@/types'
+import { Calculator, Info, AlertTriangle, CheckCircle2, XCircle, Save, Loader2, MessageCircle, Mail } from 'lucide-react'
+
+const supabase = createClient()
 
 interface SimuladorCompraProps {
   cliente: Cliente
   imoveis: Imovel[]
   onClose: () => void
+  onPropostaCriada?: () => void
 }
 
-export default function SimuladorCompra({ cliente, imoveis, onClose }: SimuladorCompraProps) {
+export default function SimuladorCompra({ cliente, imoveis, onClose, onPropostaCriada }: SimuladorCompraProps) {
   const imoveisOrdenados = useMemo(() => {
     return [...imoveis]
       .map(imovel => ({ imovel, score: calcularMatch(cliente, imovel).score }))
@@ -28,6 +34,18 @@ export default function SimuladorCompra({ cliente, imoveis, onClose }: Simulador
   const [sistema, setSistema] = useState<SistemaAmortizacao>('SAC')
   const [financiamentoSFH, setFinanciamentoSFH] = useState(false)
   const [cartorioPercentual, setCartorioPercentual] = useState('1.5')
+
+  const [proposta, setProposta] = useState<Proposta | null>(null)
+  const [salvandoProposta, setSalvandoProposta] = useState(false)
+  const [enviandoWhatsapp, setEnviandoWhatsapp] = useState(false)
+  const [enviandoEmail, setEnviandoEmail] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const selecionarImovel = (novoId: string) => {
+    setImovelId(novoId)
+    setProposta(null)
+    setErro(null)
+  }
 
   const rendaMensalTotal = (cliente.faixa_renda || 0) + (cliente.conjuge_renda || 0)
 
@@ -48,6 +66,106 @@ export default function SimuladorCompra({ cliente, imoveis, onClose }: Simulador
       orcamentoMaxCliente: cliente.orcamento_max ?? null,
     })
   }, [imovel, valorEntrada, prazoMeses, taxaJurosAnual, sistema, financiamentoSFH, cartorioPercentual, cliente, rendaMensalTotal])
+
+  const salvarSimulacao = async () => {
+    if (!imovel || !resultado) return
+    setSalvandoProposta(true)
+    setErro(null)
+    const { data, error } = await (supabase.from('propostas') as any)
+      .insert({
+        cliente_id: cliente.id,
+        imovel_id: imovel.id,
+        tipo: 'compra',
+        dados_simulacao: {
+          inputs: { valorEntradaPct, prazoMeses, taxaJurosAnual, sistema, financiamentoSFH, cartorioPercentual },
+          resultado,
+        },
+        valor_imovel: resultado.valorImovel,
+        valor_entrada: resultado.valorEntrada,
+        valor_financiado: resultado.valorFinanciado,
+        parcela_inicial: resultado.parcelaInicial,
+      })
+      .select()
+      .single()
+
+    setSalvandoProposta(false)
+    if (error || !data) {
+      setErro('Não foi possível salvar a simulação.')
+      return
+    }
+    setProposta(data as Proposta)
+    await atualizarPipelineCliente(
+      cliente.id,
+      'proposta_enviada',
+      `Proposta de compra gerada: ${imovel.titulo} — entrada ${formatCurrency(resultado.valorEntrada)}, parcela ${formatCurrency(resultado.parcelaInicial)}`
+    )
+    onPropostaCriada?.()
+  }
+
+  const enviarWhatsapp = async () => {
+    if (!proposta || !imovel || !resultado || !cliente.telefone) return
+    setEnviandoWhatsapp(true)
+    setErro(null)
+    try {
+      const buffer = gerarPdfProposta({ cliente, imovel, resultado })
+      const blob = new Blob([buffer], { type: 'application/pdf' })
+      const path = `${proposta.id}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('propostas')
+        .upload(path, blob, { contentType: 'application/pdf', upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('propostas').getPublicUrl(path)
+      const pdfUrl = urlData.publicUrl
+      const agora = new Date().toISOString()
+
+      await (supabase.from('propostas') as any)
+        .update({ pdf_url: pdfUrl, enviado_whatsapp_em: agora })
+        .eq('id', proposta.id)
+
+      const numero = cliente.telefone.replace(/\D/g, '')
+      const mensagem = `Olá ${cliente.nome.split(' ')[0]}! Preparei a simulação de compra do imóvel "${imovel.titulo}". Veja o PDF com todos os detalhes: ${pdfUrl}`
+      window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`, '_blank')
+
+      setProposta(prev => prev ? { ...prev, pdf_url: pdfUrl, enviado_whatsapp_em: agora } : prev)
+    } catch (e: any) {
+      setErro('Erro ao enviar por WhatsApp: ' + (e?.message || 'falha desconhecida'))
+    } finally {
+      setEnviandoWhatsapp(false)
+    }
+  }
+
+  const enviarEmail = async () => {
+    if (!proposta || !imovel || !resultado || !cliente.email) return
+    setEnviandoEmail(true)
+    setErro(null)
+    try {
+      const buffer = gerarPdfProposta({ cliente, imovel, resultado })
+      const base64 = arrayBufferToBase64(buffer)
+
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) throw new Error('Sessão expirada — faça login novamente.')
+
+      const res = await fetch('/api/propostas/enviar-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          propostaId: proposta.id,
+          pdfBase64: base64,
+          filename: `proposta-${imovel.titulo}.pdf`,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Falha ao enviar e-mail')
+
+      setProposta(prev => prev ? { ...prev, enviado_email_em: new Date().toISOString() } : prev)
+    } catch (e: any) {
+      setErro('Erro ao enviar por e-mail: ' + (e?.message || 'falha desconhecida'))
+    } finally {
+      setEnviandoEmail(false)
+    }
+  }
 
   if (imoveisOrdenados.length === 0) {
     return (
@@ -70,7 +188,7 @@ export default function SimuladorCompra({ cliente, imoveis, onClose }: Simulador
       {/* Seletor de imóvel */}
       <div>
         <label className="label">Imóvel</label>
-        <select className="input" value={imovelId} onChange={e => setImovelId(e.target.value)}>
+        <select className="input" value={imovelId} onChange={e => selecionarImovel(e.target.value)}>
           {imoveisOrdenados.map(({ imovel: i, score }) => (
             <option key={i.id} value={i.id}>
               {i.titulo} — {formatCurrency(i.valor)} ({score}% compatível)
@@ -193,6 +311,42 @@ export default function SimuladorCompra({ cliente, imoveis, onClose }: Simulador
               </div>
             )}
           </div>
+
+          {/* Salvar / enviar proposta */}
+          {!proposta ? (
+            <button onClick={salvarSimulacao} disabled={salvandoProposta} className="btn-primary w-full justify-center">
+              {salvandoProposta ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {salvandoProposta ? 'Salvando...' : 'Salvar simulação'}
+            </button>
+          ) : (
+            <div className="space-y-2 bg-green-50 border border-green-200 rounded-xl p-3">
+              <p className="text-sm text-green-700 flex items-center gap-1.5">
+                <CheckCircle2 size={14} className="flex-shrink-0" /> Simulação salva — registrada no histórico do cliente.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={enviarWhatsapp}
+                  disabled={!cliente.telefone || enviandoWhatsapp}
+                  className="btn-secondary flex-1 justify-center text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50"
+                >
+                  {enviandoWhatsapp ? <Loader2 size={14} className="animate-spin" /> : proposta.enviado_whatsapp_em ? <CheckCircle2 size={14} /> : <MessageCircle size={14} />}
+                  {enviandoWhatsapp ? 'Gerando PDF...' : proposta.enviado_whatsapp_em ? 'Reenviar por WhatsApp' : 'Enviar por WhatsApp'}
+                </button>
+                <button
+                  onClick={enviarEmail}
+                  disabled={!cliente.email || enviandoEmail}
+                  className="btn-secondary flex-1 justify-center disabled:opacity-50"
+                >
+                  {enviandoEmail ? <Loader2 size={14} className="animate-spin" /> : proposta.enviado_email_em ? <CheckCircle2 size={14} /> : <Mail size={14} />}
+                  {enviandoEmail ? 'Enviando...' : proposta.enviado_email_em ? 'Reenviado por e-mail' : 'Enviar por e-mail'}
+                </button>
+              </div>
+              {!cliente.telefone && <p className="text-xs text-slate-400">Cliente sem telefone cadastrado para WhatsApp.</p>}
+              {!cliente.email && <p className="text-xs text-slate-400">Cliente sem e-mail cadastrado.</p>}
+            </div>
+          )}
+
+          {erro && <p className="text-xs text-red-600">{erro}</p>}
         </>
       )}
 

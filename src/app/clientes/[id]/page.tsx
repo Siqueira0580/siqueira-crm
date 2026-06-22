@@ -575,6 +575,7 @@ export default function ClienteDetailPage() {
           cliente={cliente}
           imoveis={imoveisDisponiveis}
           onClose={() => setSimuladorOpen(false)}
+          onPropostaCriada={loadData}
         />
       </Modal>
     </AppLayout>

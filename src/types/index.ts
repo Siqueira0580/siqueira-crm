@@ -186,6 +186,26 @@ export interface Notificacao {
   created_at: string
 }
 
+export type TipoProposta = 'compra' | 'venda'
+
+export interface Proposta {
+  id: string
+  user_id: string
+  cliente_id: string
+  imovel_id?: string | null
+  tipo: TipoProposta
+  dados_simulacao: any
+  valor_imovel?: number | null
+  valor_entrada?: number | null
+  valor_financiado?: number | null
+  parcela_inicial?: number | null
+  pdf_url?: string | null
+  enviado_whatsapp_em?: string | null
+  enviado_email_em?: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface DashboardStats {
   totalLeads: number
   clientesAtivos: number
