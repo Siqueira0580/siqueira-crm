@@ -16,16 +16,16 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // Scripts: próprio site + Supabase + analytics inline necessários
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co",
+      // Scripts: próprio site + Supabase + Google Identity Services (OAuth Drive)
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://accounts.google.com",
       // Estilos: próprio site + inline (necessário para Tailwind/CSS-in-JS)
       "style-src 'self' 'unsafe-inline'",
       // Imagens: próprio site + Supabase storage + Unsplash (fotos da landing page) + data URIs
       "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com",
       // Fontes: próprio site
       "font-src 'self' data:",
-      // Conexões de rede: próprio site + Supabase + API Anthropic (server-side, mas deixamos seguro)
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://api.anthropic.com",
+      // Conexões de rede: próprio site + Supabase + Anthropic + Google APIs (upload Drive)
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://api.anthropic.com https://www.googleapis.com https://accounts.google.com",
       // Frames: apenas mesmo domínio
       "frame-src 'self'",
       // Objetos: bloqueados
