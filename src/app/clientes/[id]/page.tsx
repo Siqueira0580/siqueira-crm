@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Modal from '@/components/ui/Modal'
 import ClienteForm from '@/components/clientes/ClienteForm'
+import SimuladorCompra from '@/components/clientes/SimuladorCompra'
 import { createClient } from '@/lib/supabase'
 import { calcularMatch, getMatchLabel } from '@/lib/matching'
 import { atualizarPipelineCliente } from '@/lib/pipeline'
@@ -19,7 +20,7 @@ import {
 import {
   ArrowLeft, Edit2, Phone, Mail, MapPin,
   Building2, CalendarCheck, Brain, Plus, Zap, Home, Target, ArrowRightLeft, Sparkles,
-  User, Heart, Baby, BedDouble, CreditCard
+  User, Heart, Baby, BedDouble, CreditCard, Calculator
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -38,9 +39,11 @@ export default function ClienteDetailPage() {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [visitas, setVisitas] = useState<Visita[]>([])
   const [matchings, setMatchings] = useState<Matching[]>([])
+  const [imoveisDisponiveis, setImoveisDisponiveis] = useState<Imovel[]>([])
   const [analises, setAnalises] = useState<AnaliseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
+  const [simuladorOpen, setSimuladorOpen] = useState(false)
   const [nota, setNota] = useState('')
   const [tipoNota, setTipoNota] = useState<'nota' | 'ligacao' | 'email' | 'proposta'>('nota')
   const [addingNota, setAddingNota] = useState(false)
@@ -58,6 +61,7 @@ export default function ClienteDetailPage() {
     if (clienteData) {
       setCliente(clienteData as any)
       if (imoveisData) {
+        setImoveisDisponiveis(imoveisData as any)
         const results = imoveisData
           .map((imovel: any) => ({ ...calcularMatch(clienteData as any, imovel), imovel_id: imovel.id, imovel, cliente_id: id, id: imovel.id, created_at: '' }))
           .sort((a, b) => b.score - a.score)
@@ -142,6 +146,9 @@ export default function ClienteDetailPage() {
               className="btn-primary"
             >
               <Sparkles size={16} /> Análise IA
+            </button>
+            <button onClick={() => setSimuladorOpen(true)} className="btn-secondary">
+              <Calculator size={16} /> Simular compra
             </button>
             <button onClick={() => setEditOpen(true)} className="btn-secondary">
               <Edit2 size={16} /> Editar
@@ -560,6 +567,14 @@ export default function ClienteDetailPage() {
           cliente={cliente}
           onSuccess={() => { setEditOpen(false); loadData() }}
           onCancel={() => setEditOpen(false)}
+        />
+      </Modal>
+
+      <Modal isOpen={simuladorOpen} onClose={() => setSimuladorOpen(false)} title="Simulador de Compra" size="lg">
+        <SimuladorCompra
+          cliente={cliente}
+          imoveis={imoveisDisponiveis}
+          onClose={() => setSimuladorOpen(false)}
         />
       </Modal>
     </AppLayout>

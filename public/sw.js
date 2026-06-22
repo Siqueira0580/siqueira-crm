@@ -1,7 +1,7 @@
 // Siqueira CRM — Service Worker
 // Estratégia: Network First com fallback para cache
 
-const CACHE_NAME = 'siqueira-crm-v1'
+const CACHE_NAME = 'siqueira-crm-v2'
 
 // Recursos estáticos para pré-cachear
 const PRECACHE = [
@@ -35,6 +35,12 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
+  // Nunca intercepta requisições de outra origem (Unsplash, fontes, CDNs, etc.)
+  // Deixa o navegador buscá-las normalmente, sem passar pelo SW.
+  if (url.origin !== self.location.origin) {
+    return
+  }
+
   // Ignora requisições de API e Supabase (sempre busca na rede)
   if (
     url.pathname.startsWith('/api/') ||
@@ -44,12 +50,11 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Network First: tenta rede, fallback para cache
+  // Network First: tenta rede, fallback para cache (apenas mesma origem)
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Só cacheia respostas bem-sucedidas de mesma origem
-        if (response.ok && url.origin === self.location.origin) {
+        if (response.ok) {
           const clone = response.clone()
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone))
         }
