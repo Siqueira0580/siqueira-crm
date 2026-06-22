@@ -476,7 +476,7 @@ export default function RecursosCaptacaoPage() {
 
         {/* ──────── TAB: MEU LINK ──────── */}
         {tab === 'link' && (
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Link box */}
             <div className="bg-white rounded-2xl border border-slate-100 p-6">
@@ -488,26 +488,26 @@ export default function RecursosCaptacaoPage() {
 
               {userId ? (
                 <>
-                  <div className="flex gap-2 mb-4">
-                    <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 font-mono truncate">
+                  <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                    <div className="min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-700 font-mono break-all">
                       {captacaoUrl}
                     </div>
                     <button onClick={copyLink}
-                      className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ${
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ${
                         copied ? 'bg-green-500 text-white' : 'bg-slate-800 text-white hover:bg-slate-700'
                       }`}>
-                      {copied ? <><CheckCheck size={15} /> <span className="hidden sm:inline">Copiado!</span></> : <><Copy size={15} /> <span className="hidden sm:inline">Copiar</span></>}
+                      {copied ? <><CheckCheck size={15} /> Copiado!</> : <><Copy size={15} /> Copiar</>}
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2.5">
                     <button onClick={shareWhatsApp}
-                      className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold transition-colors">
-                      <MessageCircle size={18} /> Compartilhar via WhatsApp
+                      className="flex items-center justify-center gap-2 w-full px-3 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+                      <MessageCircle size={16} className="flex-shrink-0" /> <span className="truncate">Compartilhar via WhatsApp</span>
                     </button>
                     <a href={captacaoUrl} target="_blank" rel="noreferrer"
-                      className="flex items-center justify-center gap-2 w-full px-4 py-3 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-colors">
-                      <ExternalLink size={16} /> Visualizar formulário
+                      className="flex items-center justify-center gap-2 w-full px-3 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+                      <ExternalLink size={14} className="flex-shrink-0" /> <span className="truncate">Visualizar formulário</span>
                     </a>
                   </div>
                 </>
