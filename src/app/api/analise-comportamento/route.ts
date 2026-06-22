@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const SYSTEM_PROMPT = `Você é um Motor de Análise de Persona e Estratégia de Vendas Imobiliárias operando no backend de um CRM. Sua função exclusiva é analisar o perfil de clientes (leads) e gerar insights estratégicos acionáveis para o corretor de imóveis.
 
@@ -112,6 +113,20 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authError } = await admin.auth.getUser(token)
   if (authError || !user) {
     return NextResponse.json({ error: 'Sessão inválida ou expirada.' }, { status: 401 })
+  }
+
+  // Limite por usuário: evita consumo excessivo da API da Anthropic (custo) por
+  // uma conta comprometida ou uso indevido — máx. 20 análises a cada 10 minutos.
+  const podeSeguir = await checkRateLimit({
+    chave: `analise-comportamento:${user.id}`,
+    limite: 20,
+    janelaMs: 10 * 60 * 1000,
+  })
+  if (!podeSeguir) {
+    return NextResponse.json(
+      { error: 'Muitas análises em pouco tempo. Aguarde alguns minutos antes de tentar novamente.' },
+      { status: 429 }
+    )
   }
 
   try {

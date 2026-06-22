@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { checkRateLimit } from '@/lib/rate-limit'
 
-// Rate limiting simples em memória: máx. 3 tentativas por IP a cada 15 minutos
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+// Rate limiting persistente (tabela rate_limits): máx. 3 tentativas por IP a cada 15
+// minutos. Antes era um Map em memória, que não funciona de forma confiável em
+// ambiente serverless (cada invocação pode cair numa instância diferente).
 const RATE_LIMIT_MAX = 3
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000 // 15 minutos
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return true
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false
-  entry.count++
-  return true
-}
 
 /** Gera uma senha provisória legível (sem caracteres ambíguos como O, 0, I, l, 1) */
 function gerarSenhaProvisoria(): string {
@@ -117,7 +107,12 @@ async function enviarEmail(para: string, senhaProvisoria: string, siteUrl: strin
 export async function POST(req: NextRequest) {
   // Rate limiting por IP
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
-  if (!checkRateLimit(ip)) {
+  const podeSeguir = await checkRateLimit({
+    chave: `recuperar-senha:${ip}`,
+    limite: RATE_LIMIT_MAX,
+    janelaMs: RATE_LIMIT_WINDOW_MS,
+  })
+  if (!podeSeguir) {
     return NextResponse.json(
       { error: 'Muitas tentativas. Aguarde 15 minutos antes de tentar novamente.' },
       { status: 429 }
