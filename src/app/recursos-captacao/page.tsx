@@ -489,14 +489,14 @@ export default function RecursosCaptacaoPage() {
               {userId ? (
                 <>
                   <div className="flex gap-2 mb-4">
-                    <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 font-mono truncate">
+                    <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 font-mono truncate">
                       {captacaoUrl}
                     </div>
                     <button onClick={copyLink}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                      className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ${
                         copied ? 'bg-green-500 text-white' : 'bg-slate-800 text-white hover:bg-slate-700'
                       }`}>
-                      {copied ? <><CheckCheck size={15} /> Copiado!</> : <><Copy size={15} /> Copiar</>}
+                      {copied ? <><CheckCheck size={15} /> <span className="hidden sm:inline">Copiado!</span></> : <><Copy size={15} /> <span className="hidden sm:inline">Copiar</span></>}
                     </button>
                   </div>
 
