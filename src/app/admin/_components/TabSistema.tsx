@@ -48,7 +48,6 @@ export default function TabSistema() {
   const [erroGdrive, setErroGdrive] = useState('')
   const [urlGdrive, setUrlGdrive] = useState('')
   const [mostrarSetupDrive, setMostrarSetupDrive] = useState(false)
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   useEffect(() => { loadResumo(); loadBackupsAuto() }, [])
 
@@ -113,62 +112,16 @@ export default function TabSistema() {
 
   const totalRegistros = Object.values(contagens).reduce((acc: number, v) => acc + (v || 0), 0)
 
-  const getGoogleToken = (): Promise<string> =>
-    new Promise((resolve, reject) => {
-      if (!googleClientId) { reject(new Error('NEXT_PUBLIC_GOOGLE_CLIENT_ID não configurado.')); return }
-      const initClient = () => {
-        const tc = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: googleClientId,
-          scope: 'https://www.googleapis.com/auth/drive.file',
-          callback: (r: any) => r.error ? reject(new Error(r.error_description || r.error)) : resolve(r.access_token),
-          error_callback: (e: any) => reject(new Error(e.message || 'Autorização cancelada ou negada')),
-        })
-        tc.requestAccessToken({ prompt: '' })
-      }
-      if ((window as any).google?.accounts?.oauth2) { initClient(); return }
-      const s = document.createElement('script')
-      s.src = 'https://accounts.google.com/gsi/client'
-      s.onload = initClient
-      s.onerror = () => reject(new Error('Falha ao carregar o SDK do Google'))
-      document.head.appendChild(s)
-    })
-
   const salvarNoDrive = async () => {
-    setGdrive('gerando')
+    setGdrive('enviando')
     setErroGdrive('')
     setUrlGdrive('')
     try {
-      // 1. Gera o backup
       const headers = await apiHeaders()
-      const res = await fetch('/api/admin/backup', { headers })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.error || 'Erro ao gerar backup')
-      }
-      const blob = await res.blob()
-      const dataHora = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-      const fileName = `backup-siqueira-crm-${dataHora}.json`
-
-      // 2. Autoriza com Google (abre popup)
-      setGdrive('autorizando')
-      const token = await getGoogleToken()
-
-      // 3. Envia para o Drive via multipart upload
-      setGdrive('enviando')
-      const form = new FormData()
-      form.append('metadata', new Blob([JSON.stringify({ name: fileName, mimeType: 'application/json', parents: ['1LKGdiX5txHRAtiocusVGE66U_dXWnegm'] })], { type: 'application/json' }))
-      form.append('file', blob)
-
-      const up = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
-      )
-      if (!up.ok) {
-        const err = await up.json()
-        throw new Error(err.error?.message || 'Erro ao enviar para o Google Drive')
-      }
-      const driveFile = await up.json()
-      setUrlGdrive(driveFile.webViewLink || '')
+      const res = await fetch('/api/cron/backup-drive', { method: 'POST', headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar no Google Drive')
+      setUrlGdrive(data.webViewLink || '')
       setGdrive('ok')
     } catch (err: any) {
       setErroGdrive(err.message || 'Erro ao salvar no Google Drive')
@@ -288,52 +241,21 @@ export default function TabSistema() {
               <Cloud size={16} className="text-blue-500" /> Salvar backup no Google Drive
             </h3>
             <p className="text-sm text-slate-500 mt-1 max-w-lg">
-              Gera o backup e envia automaticamente para o seu Google Drive. Uma janela do Google abrirá pedindo autorização — o arquivo ficará visível só para você.
+              Envia o backup direto para a pasta do Drive configurada. Também roda automaticamente toda segunda-feira às 03h30 — sem precisar clicar em nada.
             </p>
           </div>
-          {googleClientId ? (
-            <button
-              onClick={salvarNoDrive}
-              disabled={gdrive === 'gerando' || gdrive === 'autorizando' || gdrive === 'enviando'}
-              className="flex items-center gap-2 whitespace-nowrap bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm"
-            >
-              {gdrive === 'gerando' || gdrive === 'autorizando' || gdrive === 'enviando' ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {gdrive === 'gerando' ? 'Gerando backup...' : gdrive === 'autorizando' ? 'Aguardando autorização...' : 'Enviando...'}
-                </>
-              ) : (
-                <><Cloud size={16} /> Salvar no Drive</>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => setMostrarSetupDrive(v => !v)}
-              className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors"
-            >
-              <AlertCircle size={13} /> Configuração necessária
-              {mostrarSetupDrive ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          )}
+          <button
+            onClick={salvarNoDrive}
+            disabled={gdrive === 'enviando'}
+            className="flex items-center gap-2 whitespace-nowrap bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm"
+          >
+            {gdrive === 'enviando' ? (
+              <><Loader2 size={16} className="animate-spin" /> Salvando...</>
+            ) : (
+              <><Cloud size={16} /> Salvar no Drive</>
+            )}
+          </button>
         </div>
-
-        {/* Instruções de setup */}
-        {!googleClientId && mostrarSetupDrive && (
-          <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 space-y-2">
-            <p className="font-medium text-slate-800">Para ativar, siga estes passos:</p>
-            <ol className="list-decimal list-inside space-y-1.5 text-slate-600">
-              <li>Acesse <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink size={11} /></a> e crie um projeto.</li>
-              <li>Ative a <strong>Google Drive API</strong> (APIs e Serviços → Biblioteca).</li>
-              <li>Em <strong>Credenciais</strong>, crie uma credencial do tipo <em>ID do cliente OAuth 2.0</em> → <em>Aplicativo Web</em>.</li>
-              <li>Em <em>Origens JavaScript autorizadas</em>, adicione o domínio do Vercel (ex: <code className="bg-slate-200 px-1 rounded">https://seu-app.vercel.app</code>) e <code className="bg-slate-200 px-1 rounded">http://localhost:3000</code> para desenvolvimento.</li>
-              <li>Copie o <strong>ID do cliente</strong> gerado.</li>
-              <li>No painel do Vercel, vá em <em>Settings → Environment Variables</em> e adicione:<br />
-                <code className="bg-slate-200 px-1 rounded font-mono">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> = seu ID do cliente
-              </li>
-              <li>Faça um novo deploy para a variável entrar em vigor.</li>
-            </ol>
-          </div>
-        )}
 
         {gdrive === 'ok' && (
           <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mt-4">
