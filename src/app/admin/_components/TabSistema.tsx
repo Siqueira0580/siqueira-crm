@@ -156,7 +156,7 @@ export default function TabSistema() {
       // 3. Envia para o Drive via multipart upload
       setGdrive('enviando')
       const form = new FormData()
-      form.append('metadata', new Blob([JSON.stringify({ name: fileName, mimeType: 'application/json' })], { type: 'application/json' }))
+      form.append('metadata', new Blob([JSON.stringify({ name: fileName, mimeType: 'application/json', parents: ['1LKGdiX5txHRAtiocusVGE66U_dXWnegm'] })], { type: 'application/json' }))
       form.append('file', blob)
 
       const up = await fetch(
