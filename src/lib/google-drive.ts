@@ -1,62 +1,49 @@
-// Integração server-side com Google Drive via Service Account (sem popup OAuth).
-// Usada pelo cron automático e pelo botão manual na aba Sistema.
+// Integração server-side com Google Drive via OAuth2 Refresh Token.
+// Não usa Service Account — usa a sua própria conta Google.
 //
-// Variáveis de ambiente necessárias:
-//   GOOGLE_SERVICE_ACCOUNT_KEY  — conteúdo completo do JSON da service account (uma linha)
-//   GOOGLE_DRIVE_FOLDER_ID      — ID da pasta de destino no Drive
+// Variáveis de ambiente necessárias (Vercel → Settings → Environment Variables):
+//   GOOGLE_CLIENT_ID      — ID do cliente OAuth (do Google Cloud Console)
+//   GOOGLE_CLIENT_SECRET  — Segredo do cliente OAuth (do Google Cloud Console)
+//   GOOGLE_REFRESH_TOKEN  — Refresh token obtido uma única vez via OAuth Playground
 //
-// A pasta do Drive deve ser compartilhada com o e-mail da service account
-// (campo "client_email" no JSON) com permissão de Editor.
+// Como obter o refresh token: veja instruções em /api/admin/google-drive-setup
 
-import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { TABELAS_BACKUP as TABELAS } from '@/lib/backup-tabelas'
 
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1LKGdiX5txHRAtiocusVGE66U_dXWnegm'
 
-// Gera um JWT assinado e troca por um access token do Google
-async function getServiceAccountToken(): Promise<string> {
-  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
-  if (!keyJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY não configurado')
+async function getAccessToken(): Promise<string> {
+  const clientId     = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
 
-  const key = JSON.parse(keyJson)
-  const now = Math.floor(Date.now() / 1000)
-
-  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url')
-  const claim  = Buffer.from(JSON.stringify({
-    iss: key.client_email,
-    scope: 'https://www.googleapis.com/auth/drive.file',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-  })).toString('base64url')
-
-  const signingInput = `${header}.${claim}`
-  const signer = crypto.createSign('RSA-SHA256')
-  signer.update(signingInput)
-  const signature = signer.sign(key.private_key, 'base64url')
-
-  const jwt = `${signingInput}.${signature}`
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      'Configure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_REFRESH_TOKEN no Vercel.'
+    )
+  }
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
+      client_id:     clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type:    'refresh_token',
     }),
   })
 
   if (!res.ok) {
     const err = await res.json()
-    throw new Error(err.error_description || 'Erro ao autenticar service account Google')
+    throw new Error(err.error_description || 'Erro ao renovar token Google')
   }
 
   const data = await res.json()
   return data.access_token
 }
 
-// Gera o backup completo e faz upload para a pasta do Drive
 export async function uploadBackupToDrive(): Promise<{ fileName: string; webViewLink: string }> {
   // 1. Gera o JSON de backup
   const admin = createAdminClient()
@@ -70,17 +57,17 @@ export async function uploadBackupToDrive(): Promise<{ fileName: string; webView
   }
 
   const payload = JSON.stringify({
-    gerado_em: new Date().toISOString(),
+    gerado_em:  new Date().toISOString(),
     gerado_por: 'cron-automatico',
-    tabelas: resultado,
+    tabelas:    resultado,
     ...(Object.keys(erros).length > 0 ? { erros } : {}),
   }, null, 2)
 
-  const dataHora = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const fileName = `backup-siqueira-crm-${dataHora}.json`
+  const dataHora  = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const fileName  = `backup-siqueira-crm-${dataHora}.json`
 
-  // 2. Autentica service account
-  const token = await getServiceAccountToken()
+  // 2. Obtém access token via refresh token
+  const token = await getAccessToken()
 
   // 3. Upload multipart para o Drive
   const form = new FormData()
