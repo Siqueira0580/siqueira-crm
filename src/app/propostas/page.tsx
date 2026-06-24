@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase'
 import { gerarPdfProposta, arrayBufferToBase64 } from '@/lib/gerar-pdf-proposta'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import type { Proposta, Cliente, Imovel } from '@/types'
+import { calcularCompraImovel, type SistemaAmortizacao } from '@/lib/calculo-compra'
 import {
   FileText, Search, Filter, Download, MessageCircle, Mail,
   Trash2, Loader2, CheckCircle2, AlertCircle, User, Building2,
   Calendar, Send, Clock, RefreshCw, X,
-  XCircle, Maximize2, Minimize2,
+  XCircle, Maximize2, Minimize2, Pencil, Hash, Save,
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -86,6 +87,10 @@ export default function PropostasPage() {
   // Modal de confirmação de exclusão
   const [excluindo, setExcluindo]           = useState<PropostaCompleta | null>(null)
   const [loadingExcluir, setLoadingExcluir] = useState(false)
+
+  // Edição
+  const [editando, setEditando]             = useState<PropostaCompleta | null>(null)
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false)
 
   // Ações inline
   const [acaoId, setAcaoId]                 = useState<string | null>(null)
@@ -313,6 +318,37 @@ export default function PropostasPage() {
     }
   }
 
+  // ── salvar edição ──────────────────────────
+  const salvarEdicao = async (
+    proposta: PropostaCompleta,
+    novosDados: { dados_simulacao: any; valor_imovel: number; valor_entrada: number; valor_financiado: number; parcela_inicial: number; observacoes: string }
+  ) => {
+    setSalvandoEdicao(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sessão expirada')
+
+      const res = await fetch(`/api/propostas?id=${proposta.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(novosDados),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erro ao salvar')
+
+      // Atualiza lista e detalhe aberto
+      const atualizada = { ...proposta, ...novosDados, pdf_url: null, updated_at: new Date().toISOString() }
+      setPropostas(prev => prev.map(p => p.id === proposta.id ? atualizada : p))
+      if (detalhe?.id === proposta.id) setDetalhe(atualizada)
+      setEditando(null)
+      exibirToast('Proposta atualizada com sucesso!', 'ok')
+    } catch (e: any) {
+      exibirToast('Erro ao salvar: ' + e.message, 'err')
+    } finally {
+      setSalvandoEdicao(false)
+    }
+  }
+
   const carregandoAcao = (p: PropostaCompleta, tipo: typeof acaoTipo) =>
     acaoId === p.id && acaoTipo === tipo
 
@@ -445,6 +481,7 @@ export default function PropostasPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-16">#</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cliente</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Imóvel</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Valor</th>
@@ -461,6 +498,12 @@ export default function PropostasPage() {
                       className="hover:bg-slate-50 transition-colors cursor-pointer"
                       onClick={() => setDetalhe(p)}
                     >
+                      <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
+                        <span className="inline-flex items-center gap-0.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1">
+                          <Hash size={10} />
+                          {String(p.numero).padStart(4, '0')}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -518,6 +561,13 @@ export default function PropostasPage() {
                       </td>
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1 justify-end">
+                          {/* Editar */}
+                          <BotaoAcao
+                            title="Editar proposta"
+                            onClick={() => { setEditando(p); }}
+                          >
+                            <Pencil size={14} />
+                          </BotaoAcao>
                           {/* Download PDF */}
                           <BotaoAcao
                             title="Baixar PDF"
@@ -576,7 +626,12 @@ export default function PropostasPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-800">{p.cliente?.nome || '—'}</p>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="inline-flex items-center gap-0.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-1.5 py-0.5">
+                          <Hash size={9} />{String(p.numero).padStart(4, '0')}
+                        </span>
+                        <p className="font-semibold text-slate-800">{p.cliente?.nome || '—'}</p>
+                      </div>
                       <p className="text-xs text-slate-400">{p.imovel?.titulo || '—'}</p>
                     </div>
                     <BadgeEnvio proposta={p} />
@@ -593,6 +648,12 @@ export default function PropostasPage() {
                     <div className="ml-auto text-xs text-slate-400">{formatDateTime(p.created_at)}</div>
                   </div>
                   <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <button
+                      className="flex-1 btn-secondary text-xs py-1.5 justify-center"
+                      onClick={() => setEditando(p)}
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
                     <button
                       className="flex-1 btn-secondary text-xs py-1.5 justify-center"
                       onClick={() => downloadPdf(p)}
@@ -707,6 +768,23 @@ export default function PropostasPage() {
           </div>
         </div>
       )}
+
+      {/* ── Modal de edição ──────────────────── */}
+      <Modal
+        isOpen={!!editando}
+        onClose={() => setEditando(null)}
+        title={editando ? `Editar Proposta #${String(editando.numero).padStart(4, '0')}` : 'Editar Proposta'}
+        size="lg"
+      >
+        {editando && (
+          <EditarModal
+            proposta={editando}
+            salvando={salvandoEdicao}
+            onSalvar={(dados) => salvarEdicao(editando, dados)}
+            onCancelar={() => setEditando(null)}
+          />
+        )}
+      </Modal>
 
       {/* ── Modal de confirmação de exclusão ─── */}
       <Modal
@@ -832,6 +910,17 @@ function DetalheModal({
   return (
     <div className="space-y-6">
 
+      {/* ── Número da proposta ── */}
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-sm font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-3 py-1.5">
+          <Hash size={13} />
+          Proposta #{String(proposta.numero).padStart(4, '0')}
+        </span>
+        <span className={`${txt} text-slate-400`}>
+          {proposta.imovel?.cidade ? `· ${proposta.imovel.cidade}` : ''}
+        </span>
+      </div>
+
       {/* ── Cabeçalho cliente / imóvel ── */}
       <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
         <InfoBloco titulo="Cliente" icon={<User size={14} className="text-blue-500" />} fullscreen={fullscreen}>
@@ -916,6 +1005,14 @@ function DetalheModal({
         <p className={`${txt2} text-slate-400 italic`}>Dados da simulação não disponíveis.</p>
       )}
 
+      {/* ── Observações ── */}
+      {proposta.observacoes && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Observações</p>
+          <p className={`${txt2} text-amber-900 whitespace-pre-wrap`}>{proposta.observacoes}</p>
+        </div>
+      )}
+
       {/* ── Histórico de envios (só no modal normal) ── */}
       {!fullscreen && (
         <div className="space-y-2">
@@ -992,6 +1089,175 @@ function LinhaDetalhe({ label, valor, destaque = false, fullscreen = false }: { 
     <div className={`flex items-center justify-between ${size} ${destaque ? 'font-semibold text-slate-800 border-t border-slate-200 pt-2 mt-1' : ''}`}>
       <span className="text-slate-500">{label}</span>
       <span className={`font-medium ${destaque ? 'text-slate-900 text-lg' : 'text-slate-700'}`}>{valor}</span>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// EditarModal — recalcula ao vivo e salva
+// ─────────────────────────────────────────────
+function EditarModal({
+  proposta, salvando, onSalvar, onCancelar,
+}: {
+  proposta: PropostaCompleta
+  salvando: boolean
+  onSalvar: (dados: { dados_simulacao: any; valor_imovel: number; valor_entrada: number; valor_financiado: number; parcela_inicial: number; observacoes: string }) => void
+  onCancelar: () => void
+}) {
+  const sim = proposta.dados_simulacao
+  const inputsOriginais = sim?.inputs || {}
+  const imovelValor = proposta.imovel?.valor || proposta.valor_imovel || 0
+
+  const [entradaPct,    setEntradaPct]    = useState(String(inputsOriginais.valorEntradaPct    ?? 20))
+  const [prazo,         setPrazo]         = useState(String(inputsOriginais.prazoMeses         ?? 360))
+  const [taxa,          setTaxa]          = useState(String(inputsOriginais.taxaJurosAnual     ?? 11.5))
+  const [sistema,       setSistema]       = useState<SistemaAmortizacao>(inputsOriginais.sistema ?? 'SAC')
+  const [sfh,           setSfh]           = useState<boolean>(inputsOriginais.financiamentoSFH  ?? false)
+  const [cartorioPct,   setCartorioPct]   = useState(String(inputsOriginais.cartorioPercentual ?? 1.5))
+  const [observacoes,   setObservacoes]   = useState(proposta.observacoes || '')
+
+  const resultado = useMemo(() => {
+    if (!imovelValor) return null
+    const entrada = (imovelValor * (Number(entradaPct) || 0)) / 100
+    return calcularCompraImovel({
+      valorImovel: imovelValor,
+      valorEntrada: entrada,
+      prazoMeses: Number(prazo) || 360,
+      taxaJurosAnual: Number(taxa) || 11.5,
+      sistema,
+      financiamentoSFH: sfh,
+      cartorioPercentual: cartorioPct !== '' ? Number(cartorioPct) : undefined,
+    })
+  }, [imovelValor, entradaPct, prazo, taxa, sistema, sfh, cartorioPct])
+
+  const handleSalvar = () => {
+    if (!resultado) return
+    const novosInputs = {
+      valorEntradaPct: entradaPct,
+      prazoMeses: prazo,
+      taxaJurosAnual: taxa,
+      sistema,
+      financiamentoSFH: sfh,
+      cartorioPercentual: cartorioPct,
+    }
+    onSalvar({
+      dados_simulacao: { inputs: novosInputs, resultado },
+      valor_imovel:    resultado.valorImovel,
+      valor_entrada:   resultado.valorEntrada,
+      valor_financiado: resultado.valorFinanciado,
+      parcela_inicial:  resultado.parcelaInicial,
+      observacoes,
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Info do imóvel */}
+      <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5">
+        <Building2 size={15} className="text-blue-500 flex-shrink-0" />
+        <span className="font-medium">{proposta.imovel?.titulo || '—'}</span>
+        {imovelValor > 0 && <span className="ml-auto text-slate-500">{formatCurrency(imovelValor)}</span>}
+      </div>
+
+      {/* Parâmetros */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="label">Entrada (% do valor)</label>
+          <input type="number" step="1" min="0" max="100" className="input" value={entradaPct} onChange={e => setEntradaPct(e.target.value)} />
+          {imovelValor > 0 && <p className="text-xs text-slate-400 mt-1">{formatCurrency((imovelValor * (Number(entradaPct) || 0)) / 100)}</p>}
+        </div>
+        <div>
+          <label className="label">Prazo (meses)</label>
+          <select className="input" value={prazo} onChange={e => setPrazo(e.target.value)}>
+            {[120,180,240,300,360,420].map(m => (
+              <option key={m} value={m}>{m} ({m/12} anos)</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Taxa de juros (% a.a.)</label>
+          <input type="number" step="0.1" min="0" className="input" value={taxa} onChange={e => setTaxa(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Cartório/registro (%)</label>
+          <input type="number" step="0.1" min="0" className="input" value={cartorioPct} onChange={e => setCartorioPct(e.target.value)} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Sistema de amortização</label>
+          <div className="flex gap-2 mt-1">
+            {(['SAC', 'PRICE'] as const).map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSistema(s)}
+                className={`flex-1 text-sm px-3 py-2 rounded-lg border transition-colors ${sistema === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}
+              >
+                {s === 'SAC' ? 'SAC (parcela decrescente)' : 'PRICE (parcela fixa)'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sm:col-span-2 flex items-center gap-2">
+          <input type="checkbox" id="sfh-edit" checked={sfh} onChange={e => setSfh(e.target.checked)} className="rounded" />
+          <label htmlFor="sfh-edit" className="text-sm text-slate-600 cursor-pointer">Financiamento SFH/PAR/HIS (ITBI reduzido)</label>
+        </div>
+      </div>
+
+      {/* Preview do resultado */}
+      {resultado && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prévia recalculada</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+            <PreviewLinha label="Entrada"              valor={formatCurrency(resultado.valorEntrada)} />
+            <PreviewLinha label="ITBI"                 valor={resultado.itbiIsento ? 'Isento' : formatCurrency(resultado.itbiValor)} />
+            <PreviewLinha label="Cartório"             valor={formatCurrency(resultado.cartorioValor)} />
+            <PreviewLinha label="Custo fechamento"     valor={formatCurrency(resultado.custoTotalFechamento)} destaque />
+            <PreviewLinha label="Valor financiado"     valor={formatCurrency(resultado.valorFinanciado)} />
+            <PreviewLinha label={sistema === 'SAC' ? 'Parcela inicial' : 'Parcela'} valor={formatCurrency(resultado.parcelaInicial)} destaque />
+          </div>
+          {resultado.alertaRendaComprometida && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-2">
+              <AlertCircle size={12} /> Comprometimento de renda acima de 30%
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Observações */}
+      <div>
+        <label className="label">Observações internas</label>
+        <textarea
+          rows={3}
+          className="input resize-none"
+          placeholder="Notas sobre esta proposta, condições negociadas, etc."
+          value={observacoes}
+          onChange={e => setObservacoes(e.target.value)}
+        />
+      </div>
+
+      {/* Aviso PDF */}
+      <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+        Ao salvar, o PDF anterior será invalidado. Gere um novo PDF após confirmar as alterações.
+      </div>
+
+      {/* Ações */}
+      <div className="flex gap-3 justify-end pt-1">
+        <button className="btn-secondary" onClick={onCancelar} disabled={salvando}>Cancelar</button>
+        <button className="btn-primary flex items-center gap-1.5" onClick={handleSalvar} disabled={salvando || !resultado}>
+          {salvando ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          {salvando ? 'Salvando...' : 'Salvar alterações'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function PreviewLinha({ label, valor, destaque = false }: { label: string; valor: string; destaque?: boolean }) {
+  return (
+    <div className={`flex justify-between ${destaque ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+      <span className="text-slate-500">{label}</span>
+      <span>{valor}</span>
     </div>
   )
 }

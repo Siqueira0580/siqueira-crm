@@ -190,6 +190,7 @@ export type TipoProposta = 'compra' | 'venda'
 
 export interface Proposta {
   id: string
+  numero: number
   user_id: string
   cliente_id: string
   imovel_id?: string | null
@@ -202,6 +203,7 @@ export interface Proposta {
   pdf_url?: string | null
   enviado_whatsapp_em?: string | null
   enviado_email_em?: string | null
+  observacoes?: string | null
   created_at: string
   updated_at: string
 }

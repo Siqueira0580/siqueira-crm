@@ -35,13 +35,13 @@ export async function GET(req: NextRequest) {
 
     let query = (admin.from('propostas') as any)
       .select(`
-        id, user_id, cliente_id, imovel_id, tipo,
+        id, numero, user_id, cliente_id, imovel_id, tipo,
         dados_simulacao, valor_imovel, valor_entrada,
-        valor_financiado, parcela_inicial,
+        valor_financiado, parcela_inicial, observacoes,
         pdf_url, enviado_whatsapp_em, enviado_email_em,
         created_at, updated_at
       `)
-      .order('created_at', { ascending: false })
+      .order('numero', { ascending: false })
 
     if (!auth.isAdmin) {
       query = query.eq('user_id', auth.user.id)
@@ -85,6 +85,60 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ propostas: resultado })
   } catch (err: any) {
     console.error('[GET /api/propostas]', err?.message)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
+}
+
+// PUT — edita dados de simulação e observações de uma proposta
+export async function PUT(req: NextRequest) {
+  try {
+    const auth = await autenticar(req)
+    if (!auth) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'ID obrigatório' }, { status: 400 })
+
+    const body = await req.json()
+    const { dados_simulacao, valor_imovel, valor_entrada, valor_financiado, parcela_inicial, observacoes } = body
+
+    const admin = createAdminClient()
+
+    // Verifica propriedade
+    const { data: proposta, error: fetchErr } = await (admin.from('propostas') as any)
+      .select('id, user_id')
+      .eq('id', id)
+      .single()
+
+    if (fetchErr || !proposta) {
+      return NextResponse.json({ error: 'Proposta não encontrada' }, { status: 404 })
+    }
+    if (!auth.isAdmin && proposta.user_id !== auth.user.id) {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (dados_simulacao !== undefined) updates.dados_simulacao = dados_simulacao
+    if (valor_imovel    !== undefined) updates.valor_imovel    = valor_imovel
+    if (valor_entrada   !== undefined) updates.valor_entrada   = valor_entrada
+    if (valor_financiado !== undefined) updates.valor_financiado = valor_financiado
+    if (parcela_inicial !== undefined) updates.parcela_inicial = parcela_inicial
+    if (observacoes     !== undefined) updates.observacoes     = observacoes
+
+    // Invalida o PDF antigo (dados mudaram)
+    updates.pdf_url = null
+
+    const { data: atualizada, error: updErr } = await (admin.from('propostas') as any)
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, proposta: atualizada })
+  } catch (err: any) {
+    console.error('[PUT /api/propostas]', err?.message)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
