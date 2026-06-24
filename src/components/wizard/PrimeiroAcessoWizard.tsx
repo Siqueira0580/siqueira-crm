@@ -18,7 +18,7 @@ const supabase = createClient()
 
 function IlusBemVindo() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 112" className="w-full h-24" fill="none">
       {/* Sidebar */}
       <rect x="8" y="8" width="52" height="104" rx="6" fill="#1e3a5f" />
       <rect x="16" y="22" width="36" height="5" rx="2.5" fill="#fff" fillOpacity=".3" />
@@ -50,7 +50,7 @@ function IlusBemVindo() {
 
 function IlusClientes() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {/* Card cliente */}
       <rect x="8" y="8" width="150" height="104" rx="8" fill="white" stroke="#e2e8f0" strokeWidth="1.5" />
       {/* Avatar */}
@@ -91,7 +91,7 @@ function IlusClientes() {
 
 function IlusSimulador() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {/* Painel simulador */}
       <rect x="8" y="8" width="140" height="104" rx="8" fill="white" stroke="#e2e8f0" strokeWidth="1.5" />
       <rect x="8" y="8" width="140" height="22" rx="8" fill="#7c3aed" />
@@ -132,7 +132,7 @@ function IlusPipeline() {
     { label: 'Fechado', cor: '#10b981', cards: 1 },
   ]
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {colunas.map((col, ci) => (
         <g key={ci}>
           <rect x={8 + ci*63} y="8" width="56" height="104" rx="6" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="1" />
@@ -155,7 +155,7 @@ function IlusPipeline() {
 
 function IlusIA() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {/* Cérebro estilizado */}
       <circle cx="70" cy="60" r="48" fill="#eff6ff" stroke="#bfdbfe" strokeWidth="1.5" />
       <circle cx="70" cy="60" r="32" fill="#dbeafe" />
@@ -196,7 +196,7 @@ function IlusIA() {
 
 function IlusRadar() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {/* Radar background */}
       <circle cx="80" cy="62" r="52" fill="#0f172a" />
       {[42,30,18,8].map((r,i) => (
@@ -240,7 +240,7 @@ function IlusRadar() {
 
 function IlusCaptacao() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       {/* Imóvel */}
       <rect x="8" y="40" width="90" height="72" rx="0" fill="#1e3a5f" />
       <polygon points="8,40 53,8 98,40" fill="#1e3a5f" />
@@ -272,7 +272,7 @@ function IlusCaptacao() {
 
 function IlusConcluido() {
   return (
-    <svg viewBox="0 0 260 120" className="w-full h-28" fill="none">
+    <svg viewBox="0 0 260 120" className="w-full h-24" fill="none">
       <circle cx="130" cy="60" r="52" fill="#f0fdf4" stroke="#bbf7d0" strokeWidth="2" />
       <circle cx="130" cy="60" r="38" fill="#dcfce7" />
       <circle cx="130" cy="60" r="24" fill="#10b981" />
@@ -450,7 +450,7 @@ export default function PrimeiroAcessoWizard({ onConcluir }: Props) {
       <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" />
 
       {/* Card */}
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col">
 
         {/* Barra de progresso */}
         <div className="h-1 bg-slate-100 flex-shrink-0">
@@ -460,54 +460,55 @@ export default function PrimeiroAcessoWizard({ onConcluir }: Props) {
           />
         </div>
 
-        {/* Cabeçalho gradiente com ilustração */}
-        <div className={`bg-gradient-to-br ${atual.cor} px-6 pt-6 pb-4 relative flex-shrink-0`}>
+        {/* Cabeçalho gradiente */}
+        <div className={`bg-gradient-to-br ${atual.cor} px-5 pt-5 pb-3 relative flex-shrink-0`}>
           {/* Fechar */}
           <button
             onClick={concluir}
             title="Pular tutorial"
-            className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+            className="absolute top-3 right-3 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
 
-          {/* Etapa label */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+          {/* Ícone + título lado a lado */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
               {atual.icone}
             </div>
-            <span className="text-white/70 text-xs font-medium">
-              Etapa {etapa + 1} de {total}
+            <div>
+              <h2 className="text-base font-bold text-white leading-tight">{atual.titulo}</h2>
+              <p className="text-white/60 text-xs">{atual.subtitulo}</p>
+            </div>
+            <span className="ml-auto text-white/50 text-xs font-medium whitespace-nowrap">
+              {etapa + 1} / {total}
             </span>
           </div>
 
-          <h2 className="text-lg font-bold text-white leading-tight">{atual.titulo}</h2>
-          <p className="text-white/70 text-xs mt-0.5">{atual.subtitulo}</p>
-
           {/* Ilustração */}
-          <div className="mt-4 rounded-2xl overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 px-3 pt-3 pb-0">
+          <div className="rounded-xl overflow-hidden bg-white/10 border border-white/20 px-2 pt-2 pb-0">
             {atual.ilustracao}
           </div>
         </div>
 
-        {/* Corpo */}
-        <div className="px-6 py-4 flex-1 overflow-y-auto">
-          <p className="text-sm text-slate-600 leading-relaxed mb-4">{atual.descricao}</p>
+        {/* Corpo — sem scroll */}
+        <div className="px-5 py-3 flex-1">
+          <p className="text-xs text-slate-500 leading-relaxed mb-3">{atual.descricao}</p>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {atual.destaques.map((d, i) => (
-              <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-slate-50 border border-slate-100">
-                <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${d.cor}`}>
+              <div key={i} className="flex items-start gap-2 py-2 px-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${d.cor}`}>
                   {d.icon}
                 </span>
-                <span className="text-sm text-slate-700">{d.texto}</span>
+                <span className="text-xs text-slate-600 leading-snug">{d.texto}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Rodapé */}
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0 bg-white">
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0 bg-white">
           {/* Pontos de navegação (clicáveis) */}
           <div className="flex gap-1.5 flex-wrap">
             {ETAPAS.map((_, i) => (
