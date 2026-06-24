@@ -317,7 +317,7 @@ export default function PropostasPage() {
 
   // ── render ─────────────────────────────────
   return (
-    <AppLayout>
+    <AppLayout title="Propostas">
       {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all ${
