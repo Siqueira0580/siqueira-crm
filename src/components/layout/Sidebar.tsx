@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   LayoutDashboard, Users, Building2, CalendarCheck,
-  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send, X
+  TrendingUp, LogOut, ChevronRight, FileText, UserCog, ShieldCheck, CircleUser, Brain, Radar, Send, X, ClipboardList
 } from 'lucide-react'
 
 const FIXED_ADMIN = 'duda.siqueira2@gmail.com'
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/imoveis',          label: 'Imóveis',      icon: Building2,       adminOnly: false, fixedAdminOnly: false },
   { href: '/visitas',          label: 'Visitas',      icon: CalendarCheck,   adminOnly: false, fixedAdminOnly: false },
   { href: '/pipeline',         label: 'Pipeline',     icon: TrendingUp,      adminOnly: false, fixedAdminOnly: false },
+  { href: '/propostas',        label: 'Propostas',    icon: ClipboardList,   adminOnly: false, fixedAdminOnly: false },
   { href: '/relatorios',       label: 'Relatórios',   icon: FileText,        adminOnly: false, fixedAdminOnly: false },
   { href: '/analise-comportamento', label: 'Análise IA',  icon: Brain,           adminOnly: false, fixedAdminOnly: false },
   { href: '/radar-leads',           label: 'Radar',       icon: Radar,           adminOnly: false, fixedAdminOnly: false },
