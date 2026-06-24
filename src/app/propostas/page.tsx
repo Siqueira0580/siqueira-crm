@@ -90,6 +90,7 @@ export default function PropostasPage() {
 
   // Edição
   const [editando, setEditando]             = useState<PropostaCompleta | null>(null)
+  const [editandoFs, setEditandoFs]         = useState(false)   // fullscreen do modal de edição
   const [salvandoEdicao, setSalvandoEdicao] = useState(false)
 
   // Ações inline
@@ -341,6 +342,7 @@ export default function PropostasPage() {
       setPropostas(prev => prev.map(p => p.id === proposta.id ? atualizada : p))
       if (detalhe?.id === proposta.id) setDetalhe(atualizada)
       setEditando(null)
+      setEditandoFs(false)
       exibirToast('Proposta atualizada com sucesso!', 'ok')
     } catch (e: any) {
       exibirToast('Erro ao salvar: ' + e.message, 'err')
@@ -769,22 +771,76 @@ export default function PropostasPage() {
         </div>
       )}
 
-      {/* ── Modal de edição ──────────────────── */}
-      <Modal
-        isOpen={!!editando}
-        onClose={() => setEditando(null)}
-        title={editando ? `Editar Proposta #${String(editando.numero).padStart(4, '0')}` : 'Editar Proposta'}
-        size="lg"
-      >
-        {editando && (
+      {/* ── Modal de edição (normal) ─────────── */}
+      {editando && !editandoFs && (
+        <Modal
+          isOpen
+          onClose={() => setEditando(null)}
+          title={`Editar Proposta #${String(editando.numero).padStart(4, '0')}`}
+          size="lg"
+        >
+          {/* Botão Expandir dentro do modal */}
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setEditandoFs(true)}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 transition-colors"
+              title="Expandir para tela cheia"
+            >
+              <Maximize2 size={13} /> Expandir
+            </button>
+          </div>
           <EditarModal
             proposta={editando}
             salvando={salvandoEdicao}
             onSalvar={(dados) => salvarEdicao(editando, dados)}
             onCancelar={() => setEditando(null)}
           />
-        )}
-      </Modal>
+        </Modal>
+      )}
+
+      {/* ── Modal de edição (fullscreen) ──────── */}
+      {editando && editandoFs && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          {/* Barra superior */}
+          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">
+                Editar Proposta #{String(editando.numero).padStart(4, '0')}
+              </h2>
+              {editando.cliente?.nome && (
+                <p className="text-xs text-slate-500">{editando.cliente.nome}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditandoFs(false)}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 transition-colors"
+                title="Reduzir"
+              >
+                <Minimize2 size={13} /> Reduzir
+              </button>
+              <button
+                onClick={() => { setEditando(null); setEditandoFs(false) }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+                title="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Conteúdo */}
+          <div className="max-w-4xl mx-auto px-6 py-8">
+            <EditarModal
+              proposta={editando}
+              salvando={salvandoEdicao}
+              fullscreen
+              onSalvar={(dados) => salvarEdicao(editando, dados)}
+              onCancelar={() => { setEditando(null); setEditandoFs(false) }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de confirmação de exclusão ─── */}
       <Modal
@@ -1097,10 +1153,11 @@ function LinhaDetalhe({ label, valor, destaque = false, fullscreen = false }: { 
 // EditarModal — recalcula ao vivo e salva
 // ─────────────────────────────────────────────
 function EditarModal({
-  proposta, salvando, onSalvar, onCancelar,
+  proposta, salvando, fullscreen = false, onSalvar, onCancelar,
 }: {
   proposta: PropostaCompleta
   salvando: boolean
+  fullscreen?: boolean
   onSalvar: (dados: { dados_simulacao: any; valor_imovel: number; valor_entrada: number; valor_financiado: number; parcela_inicial: number; observacoes: string }) => void
   onCancelar: () => void
 }) {
@@ -1150,8 +1207,13 @@ function EditarModal({
     })
   }
 
-  return (
-    <div className="space-y-5">
+  /* No fullscreen: parâmetros à esquerda, preview à direita */
+  const wrapper     = fullscreen ? 'grid grid-cols-1 lg:grid-cols-2 gap-8 items-start' : 'space-y-5'
+  const leftCol     = fullscreen ? 'space-y-5' : 'contents'
+  const rightCol    = fullscreen ? 'space-y-5' : 'contents'
+
+  const campos = (
+    <>
       {/* Info do imóvel */}
       <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5">
         <Building2 size={15} className="text-blue-500 flex-shrink-0" />
@@ -1203,17 +1265,39 @@ function EditarModal({
         </div>
       </div>
 
+      {/* Observações */}
+      <div>
+        <label className="label">Observações internas</label>
+        <textarea
+          rows={fullscreen ? 5 : 3}
+          className="input resize-none"
+          placeholder="Notas sobre esta proposta, condições negociadas, etc."
+          value={observacoes}
+          onChange={e => setObservacoes(e.target.value)}
+        />
+      </div>
+    </>
+  )
+
+  const preview = (
+    <>
       {/* Preview do resultado */}
       {resultado && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Prévia recalculada</p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            <PreviewLinha label="Entrada"              valor={formatCurrency(resultado.valorEntrada)} />
-            <PreviewLinha label="ITBI"                 valor={resultado.itbiIsento ? 'Isento' : formatCurrency(resultado.itbiValor)} />
-            <PreviewLinha label="Cartório"             valor={formatCurrency(resultado.cartorioValor)} />
-            <PreviewLinha label="Custo fechamento"     valor={formatCurrency(resultado.custoTotalFechamento)} destaque />
-            <PreviewLinha label="Valor financiado"     valor={formatCurrency(resultado.valorFinanciado)} />
+          <div className={`grid gap-x-6 gap-y-2 text-sm ${fullscreen ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <PreviewLinha label="Valor do imóvel"     valor={formatCurrency(resultado.valorImovel)} />
+            <PreviewLinha label="Entrada"             valor={formatCurrency(resultado.valorEntrada)} />
+            <PreviewLinha label="ITBI"                valor={resultado.itbiIsento ? 'Isento' : formatCurrency(resultado.itbiValor)} />
+            <PreviewLinha label="Cartório"            valor={formatCurrency(resultado.cartorioValor)} />
+            <PreviewLinha label="Custo fechamento"    valor={formatCurrency(resultado.custoTotalFechamento)} destaque />
+            <PreviewLinha label="Valor financiado"    valor={formatCurrency(resultado.valorFinanciado)} />
+            <PreviewLinha label="Prazo"               valor={`${resultado.prazoMeses} meses (${resultado.prazoMeses/12} anos)`} />
+            <PreviewLinha label="Taxa"                valor={`${resultado.taxaJurosAnual}% a.a.`} />
             <PreviewLinha label={sistema === 'SAC' ? 'Parcela inicial' : 'Parcela'} valor={formatCurrency(resultado.parcelaInicial)} destaque />
+            {sistema === 'SAC' && resultado.parcelaFinal && (
+              <PreviewLinha label="Parcela final" valor={formatCurrency(resultado.parcelaFinal)} />
+            )}
           </div>
           {resultado.alertaRendaComprometida && (
             <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-2">
@@ -1222,18 +1306,6 @@ function EditarModal({
           )}
         </div>
       )}
-
-      {/* Observações */}
-      <div>
-        <label className="label">Observações internas</label>
-        <textarea
-          rows={3}
-          className="input resize-none"
-          placeholder="Notas sobre esta proposta, condições negociadas, etc."
-          value={observacoes}
-          onChange={e => setObservacoes(e.target.value)}
-        />
-      </div>
 
       {/* Aviso PDF */}
       <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -1249,6 +1321,13 @@ function EditarModal({
           {salvando ? 'Salvando...' : 'Salvar alterações'}
         </button>
       </div>
+    </>
+  )
+
+  return (
+    <div className={wrapper}>
+      <div className={leftCol}>{campos}</div>
+      <div className={rightCol}>{preview}</div>
     </div>
   )
 }
