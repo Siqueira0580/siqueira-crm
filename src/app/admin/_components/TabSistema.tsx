@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
-  Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X, Clock, FileJson, Cloud, ExternalLink, ChevronDown, ChevronUp,
+  Database, Download, Upload, Loader2, AlertCircle, ShieldCheck, Info, RotateCcw, CheckCircle, X, Clock, FileJson,
 } from 'lucide-react'
 import { NOME_TABELA, isTabelaRestauravel } from '@/lib/backup-tabelas'
 import TabSistemaDashboard from './TabSistemaDashboard'
@@ -42,12 +42,6 @@ export default function TabSistema() {
   const [backupsAuto, setBackupsAuto] = useState<{ nome: string; criado_em: string; tamanho: number | null; url: string | null }[]>([])
   const [loadingAuto, setLoadingAuto] = useState(true)
   const [erroAuto, setErroAuto] = useState('')
-
-  // Google Drive
-  const [gdrive, setGdrive] = useState<'idle' | 'gerando' | 'autorizando' | 'enviando' | 'ok' | 'erro'>('idle')
-  const [erroGdrive, setErroGdrive] = useState('')
-  const [urlGdrive, setUrlGdrive] = useState('')
-  const [mostrarSetupDrive, setMostrarSetupDrive] = useState(false)
 
   useEffect(() => { loadResumo(); loadBackupsAuto() }, [])
 
@@ -111,23 +105,6 @@ export default function TabSistema() {
   }
 
   const totalRegistros = Object.values(contagens).reduce((acc: number, v) => acc + (v || 0), 0)
-
-  const salvarNoDrive = async () => {
-    setGdrive('enviando')
-    setErroGdrive('')
-    setUrlGdrive('')
-    try {
-      const headers = await apiHeaders()
-      const res = await fetch('/api/cron/backup-drive', { method: 'POST', headers })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao salvar no Google Drive')
-      setUrlGdrive(data.webViewLink || '')
-      setGdrive('ok')
-    } catch (err: any) {
-      setErroGdrive(err.message || 'Erro ao salvar no Google Drive')
-      setGdrive('erro')
-    }
-  }
 
   const selecionarArquivo = (file: File | null) => {
     setErroArquivo('')
@@ -229,50 +206,6 @@ export default function TabSistema() {
         {erroBackup && (
           <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-4">
             <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroBackup}
-          </div>
-        )}
-      </div>
-
-      {/* Google Drive */}
-      <div className="card">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h3 className="font-medium text-slate-700 flex items-center gap-2">
-              <Cloud size={16} className="text-blue-500" /> Salvar backup no Google Drive
-            </h3>
-            <p className="text-sm text-slate-500 mt-1 max-w-lg">
-              Envia o backup direto para a pasta do Drive configurada. Também roda automaticamente toda segunda-feira às 03h30 — sem precisar clicar em nada.
-            </p>
-          </div>
-          <button
-            onClick={salvarNoDrive}
-            disabled={gdrive === 'enviando'}
-            className="flex items-center gap-2 whitespace-nowrap bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-xl transition-colors text-sm"
-          >
-            {gdrive === 'enviando' ? (
-              <><Loader2 size={16} className="animate-spin" /> Salvando...</>
-            ) : (
-              <><Cloud size={16} /> Salvar no Drive</>
-            )}
-          </button>
-        </div>
-
-        {gdrive === 'ok' && (
-          <div className="flex items-start gap-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 mt-4">
-            <CheckCircle size={16} className="mt-0.5 flex-shrink-0" />
-            <span>
-              Backup salvo no Google Drive com sucesso!{' '}
-              {urlGdrive && (
-                <a href={urlGdrive} target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-1">
-                  Abrir arquivo <ExternalLink size={12} />
-                </a>
-              )}
-            </span>
-          </div>
-        )}
-        {gdrive === 'erro' && (
-          <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mt-4">
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" /> {erroGdrive}
           </div>
         )}
       </div>
