@@ -9,8 +9,8 @@ import type { Proposta, Cliente, Imovel } from '@/types'
 import {
   FileText, Search, Filter, Download, MessageCircle, Mail,
   Trash2, Loader2, CheckCircle2, AlertCircle, User, Building2,
-  Calendar, TrendingUp, Send, Clock, RefreshCw, ChevronRight,
-  XCircle,
+  Calendar, Send, Clock, RefreshCw, X,
+  XCircle, Maximize2, Minimize2,
 } from 'lucide-react'
 
 const supabase = createClient()
@@ -81,6 +81,7 @@ export default function PropostasPage() {
 
   // Modal de detalhe
   const [detalhe, setDetalhe]               = useState<PropostaCompleta | null>(null)
+  const [fullscreen, setFullscreen]         = useState(false)
 
   // Modal de confirmação de exclusão
   const [excluindo, setExcluindo]           = useState<PropostaCompleta | null>(null)
@@ -631,14 +632,81 @@ export default function PropostasPage() {
       </div>
 
       {/* ── Modal de detalhe ─────────────────── */}
-      <Modal
-        isOpen={!!detalhe}
-        onClose={() => setDetalhe(null)}
-        title="Detalhe da Proposta"
-        size="lg"
-      >
-        {detalhe && <DetalheModal proposta={detalhe} onDownload={downloadPdf} onWpp={reenviarWhatsapp} onEmail={reenviarEmail} onExcluir={() => { setExcluindo(detalhe); setDetalhe(null) }} acaoId={acaoId} acaoTipo={acaoTipo} />}
-      </Modal>
+      {/* Modal normal */}
+      {detalhe && !fullscreen && (
+        <Modal
+          isOpen={!!detalhe}
+          onClose={() => { setDetalhe(null); setFullscreen(false) }}
+          title={detalhe.cliente?.nome ? `Proposta — ${detalhe.cliente.nome}` : 'Detalhe da Proposta'}
+          size="lg"
+        >
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setFullscreen(true)}
+              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 transition-colors"
+              title="Expandir para tela cheia"
+            >
+              <Maximize2 size={13} /> Expandir
+            </button>
+          </div>
+          <DetalheModal
+            proposta={detalhe}
+            onDownload={downloadPdf}
+            onWpp={reenviarWhatsapp}
+            onEmail={reenviarEmail}
+            onExcluir={() => { setExcluindo(detalhe); setDetalhe(null) }}
+            acaoId={acaoId}
+            acaoTipo={acaoTipo}
+          />
+        </Modal>
+      )}
+
+      {/* Fullscreen */}
+      {detalhe && fullscreen && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          {/* Barra superior */}
+          <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm">
+            <div>
+              <h2 className="text-base font-semibold text-slate-800">
+                {detalhe.cliente?.nome ? `Proposta — ${detalhe.cliente.nome}` : 'Detalhe da Proposta'}
+              </h2>
+              {detalhe.imovel?.titulo && (
+                <p className="text-xs text-slate-500">{detalhe.imovel.titulo}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFullscreen(false)}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 transition-colors"
+                title="Reduzir"
+              >
+                <Minimize2 size={13} /> Reduzir
+              </button>
+              <button
+                onClick={() => { setDetalhe(null); setFullscreen(false) }}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
+                title="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Conteúdo expandido */}
+          <div className="max-w-5xl mx-auto px-6 py-8">
+            <DetalheModal
+              proposta={detalhe}
+              onDownload={downloadPdf}
+              onWpp={reenviarWhatsapp}
+              onEmail={reenviarEmail}
+              onExcluir={() => { setExcluindo(detalhe); setDetalhe(null); setFullscreen(false) }}
+              acaoId={acaoId}
+              acaoTipo={acaoTipo}
+              fullscreen
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Modal de confirmação de exclusão ─── */}
       <Modal
@@ -742,7 +810,7 @@ function BotaoAcao({
 // DetalheModal
 // ─────────────────────────────────────────────
 function DetalheModal({
-  proposta, onDownload, onWpp, onEmail, onExcluir, acaoId, acaoTipo,
+  proposta, onDownload, onWpp, onEmail, onExcluir, acaoId, acaoTipo, fullscreen = false,
 }: {
   proposta: PropostaCompleta
   onDownload: (p: PropostaCompleta) => void
@@ -751,102 +819,122 @@ function DetalheModal({
   onExcluir:  () => void
   acaoId:     string | null
   acaoTipo:   'wpp' | 'email' | 'pdf' | null
+  fullscreen?: boolean
 }) {
-  const sim     = proposta.dados_simulacao
-  const inputs  = sim?.inputs   || {}
-  const res     = sim?.resultado || null
+  const sim = proposta.dados_simulacao
+  const res = sim?.resultado || null
 
   const loading = (tipo: typeof acaoTipo) => acaoId === proposta.id && acaoTipo === tipo
 
-  return (
-    <div className="space-y-5">
+  const txt  = fullscreen ? 'text-sm'  : 'text-xs'
+  const txt2 = fullscreen ? 'text-base' : 'text-sm'
 
-      {/* Cabeçalho cliente / imóvel */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <InfoBloco titulo="Cliente" icon={<User size={14} className="text-blue-500" />}>
-          <p className="font-semibold text-slate-800">{proposta.cliente?.nome || '—'}</p>
-          {proposta.cliente?.email    && <p className="text-xs text-slate-500">{proposta.cliente.email}</p>}
-          {proposta.cliente?.telefone && <p className="text-xs text-slate-500">{proposta.cliente.telefone}</p>}
+  return (
+    <div className="space-y-6">
+
+      {/* ── Cabeçalho cliente / imóvel ── */}
+      <div className={`grid gap-4 ${fullscreen ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+        <InfoBloco titulo="Cliente" icon={<User size={14} className="text-blue-500" />} fullscreen={fullscreen}>
+          <p className={`font-semibold text-slate-800 ${fullscreen ? 'text-lg' : ''}`}>{proposta.cliente?.nome || '—'}</p>
+          {proposta.cliente?.email    && <p className={`${txt} text-slate-500 mt-0.5`}>{proposta.cliente.email}</p>}
+          {proposta.cliente?.telefone && <p className={`${txt} text-slate-500`}>{proposta.cliente.telefone}</p>}
         </InfoBloco>
 
-        <InfoBloco titulo="Imóvel" icon={<Building2 size={14} className="text-blue-500" />}>
-          <p className="font-semibold text-slate-800">{proposta.imovel?.titulo || '—'}</p>
+        <InfoBloco titulo="Imóvel" icon={<Building2 size={14} className="text-blue-500" />} fullscreen={fullscreen}>
+          <p className={`font-semibold text-slate-800 ${fullscreen ? 'text-lg' : ''}`}>{proposta.imovel?.titulo || '—'}</p>
           {(proposta.imovel?.bairro || proposta.imovel?.cidade) && (
-            <p className="text-xs text-slate-500">
+            <p className={`${txt} text-slate-500 mt-0.5`}>
               {[proposta.imovel.bairro, proposta.imovel.cidade].filter(Boolean).join(' — ')}
             </p>
           )}
           {proposta.imovel?.valor && (
-            <p className="text-xs text-slate-500">{formatCurrency(proposta.imovel.valor)}</p>
+            <p className={`${txt} text-slate-500 font-medium`}>{formatCurrency(proposta.imovel.valor)}</p>
           )}
         </InfoBloco>
+
+        {fullscreen && (
+          <InfoBloco titulo="Envios" icon={<Send size={14} className="text-blue-500" />} fullscreen={fullscreen}>
+            <div className="space-y-1.5 mt-1">
+              <EnvioLinha label="WhatsApp" data={proposta.enviado_whatsapp_em} icon={<MessageCircle size={13} />} cor="green" />
+              <EnvioLinha label="E-mail"   data={proposta.enviado_email_em}    icon={<Mail size={13} />}          cor="blue"  />
+            </div>
+            <p className={`${txt} text-slate-400 flex items-center gap-1 mt-2`}>
+              <Calendar size={11} /> {formatDateTime(proposta.created_at)}
+            </p>
+          </InfoBloco>
+        )}
       </div>
 
-      {/* Dados da simulação */}
+      {/* ── Simulação financeira ── */}
       {res ? (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Simulação financeira</p>
-
-          <LinhaDetalhe label="Preço do imóvel"     valor={formatCurrency(res.valorImovel)} />
-          <LinhaDetalhe label="Entrada"              valor={formatCurrency(res.valorEntrada)} />
-          <LinhaDetalhe label="ITBI"                 valor={res.itbiIsento ? 'Isento' : formatCurrency(res.itbiValor)} />
-          <LinhaDetalhe label={`Cartório (${res.cartorioPercentual}%)`} valor={formatCurrency(res.cartorioValor)} />
-          <LinhaDetalhe label="Custo total fechamento" valor={formatCurrency(res.custoTotalFechamento)} destaque />
-
-          <div className="border-t border-slate-200 pt-2 mt-2 space-y-2">
-            <LinhaDetalhe label="Valor financiado"  valor={formatCurrency(res.valorFinanciado)} />
-            <LinhaDetalhe label="Sistema"           valor={res.sistema === 'SAC' ? 'SAC (parcela decrescente)' : 'PRICE (parcela fixa)'} />
-            <LinhaDetalhe label="Prazo"             valor={`${res.prazoMeses} meses (${res.prazoMeses / 12} anos)`} />
-            <LinhaDetalhe label="Taxa de juros"     valor={`${res.taxaJurosAnual}% a.a.`} />
-            <LinhaDetalhe label={res.sistema === 'SAC' ? 'Parcela inicial' : 'Parcela'} valor={formatCurrency(res.parcelaInicial)} destaque />
-            {res.sistema === 'SAC' && (
-              <LinhaDetalhe label="Parcela final"   valor={formatCurrency(res.parcelaFinal)} />
+        <div className={`bg-slate-50 border border-slate-200 rounded-xl p-5 ${fullscreen ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-2'}`}>
+          {/* Coluna 1 — Custos */}
+          <div className="space-y-2">
+            <p className={`${txt} font-semibold text-slate-500 uppercase tracking-wide mb-3`}>Custos no fechamento</p>
+            <LinhaDetalhe label="Preço do imóvel"          valor={formatCurrency(res.valorImovel)}        fullscreen={fullscreen} />
+            <LinhaDetalhe label="Entrada"                  valor={formatCurrency(res.valorEntrada)}       fullscreen={fullscreen} />
+            <LinhaDetalhe label="ITBI"                     valor={res.itbiIsento ? 'Isento' : formatCurrency(res.itbiValor)} fullscreen={fullscreen} />
+            <LinhaDetalhe label={`Cartório (${res.cartorioPercentual}%)`} valor={formatCurrency(res.cartorioValor)} fullscreen={fullscreen} />
+            <LinhaDetalhe label="Total no fechamento"      valor={formatCurrency(res.custoTotalFechamento)} destaque fullscreen={fullscreen} />
+            {res.itbiMotivo && (
+              <p className={`${txt} text-slate-400 italic`}>{res.itbiMotivo}</p>
             )}
           </div>
 
-          {res.rendaComprometidaPercentual != null && (
-            <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 mt-2 ${
-              res.alertaRendaComprometida ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
-            }`}>
-              {res.alertaRendaComprometida
-                ? <AlertCircle size={13} />
-                : <CheckCircle2 size={13} />}
-              Comprometimento de renda: {(res.rendaComprometidaPercentual * 100).toFixed(1)}%
-              {res.alertaRendaComprometida ? ' — acima de 30%' : ' — dentro do limite'}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-slate-400 italic">Dados da simulação não disponíveis.</p>
-      )}
+          {/* Coluna 2 — Financiamento */}
+          <div className="space-y-2">
+            <p className={`${txt} font-semibold text-slate-500 uppercase tracking-wide mb-3`}>Financiamento</p>
+            <LinhaDetalhe label="Valor financiado"  valor={formatCurrency(res.valorFinanciado)} fullscreen={fullscreen} />
+            <LinhaDetalhe label="Sistema"           valor={res.sistema === 'SAC' ? 'SAC (parcela decrescente)' : 'PRICE (parcela fixa)'} fullscreen={fullscreen} />
+            <LinhaDetalhe label="Prazo"             valor={`${res.prazoMeses} meses (${res.prazoMeses / 12} anos)`} fullscreen={fullscreen} />
+            <LinhaDetalhe label="Taxa de juros"     valor={`${res.taxaJurosAnual}% a.a.`} fullscreen={fullscreen} />
+            <LinhaDetalhe label={res.sistema === 'SAC' ? 'Parcela inicial' : 'Parcela'} valor={formatCurrency(res.parcelaInicial)} destaque fullscreen={fullscreen} />
+            {res.sistema === 'SAC' && (
+              <LinhaDetalhe label="Parcela final" valor={formatCurrency(res.parcelaFinal)} fullscreen={fullscreen} />
+            )}
 
-      {/* Histórico de envios */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Histórico de envios</p>
-        <div className="space-y-1.5">
-          <EnvioLinha
-            label="WhatsApp"
-            data={proposta.enviado_whatsapp_em}
-            icon={<MessageCircle size={13} />}
-            cor="green"
-          />
-          <EnvioLinha
-            label="E-mail"
-            data={proposta.enviado_email_em}
-            icon={<Mail size={13} />}
-            cor="blue"
-          />
-          <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
-            <Calendar size={11} />
-            Proposta criada em {formatDateTime(proposta.created_at)}
+            {res.rendaComprometidaPercentual != null && (
+              <div className={`flex items-center gap-2 ${txt} rounded-lg px-3 py-2 mt-2 ${
+                res.alertaRendaComprometida ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'
+              }`}>
+                {res.alertaRendaComprometida ? <AlertCircle size={13} /> : <CheckCircle2 size={13} />}
+                Comprometimento de renda: {(res.rendaComprometidaPercentual * 100).toFixed(1)}%
+                {res.alertaRendaComprometida ? ' — acima de 30%' : ' — dentro do limite'}
+              </div>
+            )}
+            {res.dentroDoOrcamento != null && (
+              <div className={`flex items-center gap-2 ${txt} rounded-lg px-3 py-2 ${
+                res.dentroDoOrcamento ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+              }`}>
+                {res.dentroDoOrcamento ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                {res.dentroDoOrcamento ? 'Dentro do orçamento do cliente' : 'Acima do orçamento máximo'}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      ) : (
+        <p className={`${txt2} text-slate-400 italic`}>Dados da simulação não disponíveis.</p>
+      )}
 
-      {/* Ações */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+      {/* ── Histórico de envios (só no modal normal) ── */}
+      {!fullscreen && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Histórico de envios</p>
+          <div className="space-y-1.5">
+            <EnvioLinha label="WhatsApp" data={proposta.enviado_whatsapp_em} icon={<MessageCircle size={13} />} cor="green" />
+            <EnvioLinha label="E-mail"   data={proposta.enviado_email_em}    icon={<Mail size={13} />}          cor="blue"  />
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
+              <Calendar size={11} />
+              Proposta criada em {formatDateTime(proposta.created_at)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Ações ── */}
+      <div className={`flex flex-wrap gap-2 pt-3 border-t border-slate-100 ${fullscreen ? 'sticky bottom-0 bg-white pb-2' : ''}`}>
         <button
-          className="btn-secondary flex items-center gap-1.5 text-sm"
+          className={`btn-secondary flex items-center gap-1.5 ${txt2}`}
           onClick={() => onDownload(proposta)}
           disabled={!proposta.imovel || !proposta.cliente || loading('pdf')}
         >
@@ -855,7 +943,7 @@ function DetalheModal({
         </button>
 
         <button
-          className="btn-secondary flex items-center gap-1.5 text-sm text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50"
+          className={`btn-secondary flex items-center gap-1.5 ${txt2} text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50`}
           onClick={() => onWpp(proposta)}
           disabled={!proposta.cliente?.telefone || !proposta.imovel || loading('wpp')}
           title={!proposta.cliente?.telefone ? 'Cliente sem telefone' : undefined}
@@ -865,7 +953,7 @@ function DetalheModal({
         </button>
 
         <button
-          className="btn-secondary flex items-center gap-1.5 text-sm disabled:opacity-50"
+          className={`btn-secondary flex items-center gap-1.5 ${txt2} disabled:opacity-50`}
           onClick={() => onEmail(proposta)}
           disabled={!proposta.cliente?.email || !proposta.imovel || loading('email')}
           title={!proposta.cliente?.email ? 'Cliente sem e-mail' : undefined}
@@ -875,7 +963,7 @@ function DetalheModal({
         </button>
 
         <button
-          className="ml-auto btn-secondary text-red-500 border-red-200 hover:bg-red-50 flex items-center gap-1.5 text-sm"
+          className={`ml-auto btn-secondary text-red-500 border-red-200 hover:bg-red-50 flex items-center gap-1.5 ${txt2}`}
           onClick={onExcluir}
         >
           <Trash2 size={14} />
@@ -887,9 +975,9 @@ function DetalheModal({
 }
 
 // ── Blocos auxiliares ──────────────────────────
-function InfoBloco({ titulo, icon, children }: { titulo: string; icon: React.ReactNode; children: React.ReactNode }) {
+function InfoBloco({ titulo, icon, children, fullscreen = false }: { titulo: string; icon: React.ReactNode; children: React.ReactNode; fullscreen?: boolean }) {
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+    <div className={`bg-slate-50 border border-slate-200 rounded-xl ${fullscreen ? 'p-5' : 'p-3'}`}>
       <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
         {icon} {titulo}
       </div>
@@ -898,11 +986,12 @@ function InfoBloco({ titulo, icon, children }: { titulo: string; icon: React.Rea
   )
 }
 
-function LinhaDetalhe({ label, valor, destaque = false }: { label: string; valor: string; destaque?: boolean }) {
+function LinhaDetalhe({ label, valor, destaque = false, fullscreen = false }: { label: string; valor: string; destaque?: boolean; fullscreen?: boolean }) {
+  const size = fullscreen ? 'text-base' : 'text-sm'
   return (
-    <div className={`flex items-center justify-between text-sm ${destaque ? 'font-semibold text-slate-800 border-t border-slate-200 pt-2' : ''}`}>
+    <div className={`flex items-center justify-between ${size} ${destaque ? 'font-semibold text-slate-800 border-t border-slate-200 pt-2 mt-1' : ''}`}>
       <span className="text-slate-500">{label}</span>
-      <span className={destaque ? 'text-slate-900' : 'text-slate-700 font-medium'}>{valor}</span>
+      <span className={`font-medium ${destaque ? 'text-slate-900 text-lg' : 'text-slate-700'}`}>{valor}</span>
     </div>
   )
 }
