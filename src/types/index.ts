@@ -17,6 +17,7 @@ export interface Profile {
   role: UserRole
   avatar_url?: string
   telefone?: string
+  onboarding_completo?: boolean
   created_at: string
 }
 

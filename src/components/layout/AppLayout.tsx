@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import Header from './Header'
 import BottomNav from './BottomNav'
 import InactivityGuard from './InactivityGuard'
+import PrimeiroAcessoWizard from '@/components/wizard/PrimeiroAcessoWizard'
 import { createClient } from '@/lib/supabase'
 import type { Profile, Notificacao } from '@/types'
 
@@ -21,7 +22,8 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   const [userEmail, setUserEmail] = useState<string>('')
   const [notifications, setNotifications] = useState<Notificacao[]>([])
   const [authChecked, setAuthChecked] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen]   = useState(false)
+  const [showWizard, setShowWizard]     = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -73,7 +75,13 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
           .limit(30),
       ])
 
-      if (profileData) setProfile(profileData as any)
+      if (profileData) {
+        setProfile(profileData as any)
+        // Exibe wizard se onboarding ainda não foi concluído
+        if (!(profileData as any).onboarding_completo) {
+          setShowWizard(true)
+        }
+      }
       setNotifications((notifData || []) as any)
       setAuthChecked(true)
     }
@@ -114,6 +122,10 @@ export default function AppLayout({ children, title }: AppLayoutProps) {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
       <InactivityGuard />
+
+      {showWizard && (
+        <PrimeiroAcessoWizard onConcluir={() => setShowWizard(false)} />
+      )}
 
       {/* Overlay escuro atrás do menu — só em mobile/tablet, fecha ao tocar fora */}
       {sidebarOpen && (
