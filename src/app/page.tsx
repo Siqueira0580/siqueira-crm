@@ -212,7 +212,7 @@ export default function LandingPage() {
             onClick={scrollToForm}
             className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-2xl text-base shadow-xl transition-all hover:scale-105"
           >
-            Quero ser contactado →
+            Quero ser contatado →
           </button>
         </div>
 
@@ -323,7 +323,7 @@ export default function LandingPage() {
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-slate-800">Porque a Siqueira Inteligência Imobiliária?</h2>
+            <h2 className="text-3xl font-bold text-slate-800">Por que a Siqueira Inteligência Imobiliária?</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -334,7 +334,7 @@ export default function LandingPage() {
               <div key={f.title} className="text-center p-6 rounded-2xl border border-slate-100 hover:border-blue-200 hover:shadow-md transition-all">
                 <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">{f.icon}</div>
                 <h3 className="font-bold text-slate-800 mb-2">{f.title}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+                <p className="text-slate-500 text-base leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -495,7 +495,7 @@ export default function LandingPage() {
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
                 >
                   {sending && <Loader2 size={18} className="animate-spin" />}
-                  {sending ? 'Enviando...' : 'Quero ser contactado'}
+                  {sending ? 'Enviando...' : 'Quero ser contatado'}
                 </button>
 
                 <p className="text-xs text-center text-slate-400">
